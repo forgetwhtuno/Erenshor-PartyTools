@@ -32,7 +32,9 @@ Party Tools uses narrow Harmony command interception and read-only state inspect
 
 ## Build
 
-`BUILD_AND_INSTALL.ps1` compiles and installs the plugin to a BepInEx profile. The plugin identifier is `forgetwhtuno.erenshor.partytools`, version `0.1.2`.
+This version requires **native Lunaris** — BepInEx is no longer required. `BUILD_AND_INSTALL.ps1` compiles the plugin and installs it to `<Erenshor>\plugins\ErenshorPartyTools.dll`; Lunaris manages enable/disable and config. The plugin identifier is `forgetwhtuno.erenshor.partytools`, version `0.1.2`.
+
+**Status:** this native build compiles cleanly against the installed Lunaris/Assembly-CSharp and passes its full deterministic test suite. It has not yet been live-tested in-game under Lunaris (enable/disable/reload behavior). Do not assume hot-reload safety until that pass is done. A legacy BepInEx release remains available in this repository's Git history.
 
 ## Credits and Inspiration
 
