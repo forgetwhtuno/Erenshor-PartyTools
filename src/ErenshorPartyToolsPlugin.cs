@@ -20,15 +20,22 @@ namespace ErenshorPartyTools
         internal static ErenshorPartyToolsPlugin Instance;
 
         private Harmony _harmony;
+        private bool _pendingExternalOpen;
+        private bool _pendingExternalClose;
+        private int _pendingControlAction;
+        private int _pendingControlSides;
         private PartyToolsSettings _settings;
-        private PartyToolsConfigEntry<float> _panelOffsetX;
-        private PartyToolsConfigEntry<float> _panelOffsetY;
+        private PartyToolsConfigEntry<float> _panelNormalizedX;
+        private PartyToolsConfigEntry<float> _panelNormalizedY;
+        private PartyToolsConfigEntry<bool> _showLauncher;
+        private PartyToolsConfigEntry<float> _launcherNormalizedX;
+        private PartyToolsConfigEntry<float> _launcherNormalizedY;
         private PartyToolsConfigEntry<bool> _friendAvailabilityEnabled;
         private PartyToolsConfigEntry<int> _friendAvailabilitySessionHours;
         private PartyToolsConfigEntry<string> _friendAvailabilitySeed;
         private PartyToolsConfigEntry<string> _friendAvailabilityFriends;
-        private PartyToolsConfigEntry<UnityEngine.KeyCode> _openMenuKey;
         private PartyToolsConfigEntry<bool> _rollChatterEnabled;
+        private PartyToolsSuiteAuraProvider _auraProvider;
 
         private void Awake()
         {
@@ -38,7 +45,7 @@ namespace ErenshorPartyTools
             Config.Register(ref _settings);
             InitializeConfigEntries();
 
-            PartyToolsPanel.ConfigurePosition(_panelOffsetX.Value, _panelOffsetY.Value, PersistPanelPosition);
+            PartyToolsPanel.ConfigurePosition(_panelNormalizedX.Value, _panelNormalizedY.Value, _launcherNormalizedX.Value, _launcherNormalizedY.Value, PersistPanelPosition, PersistLauncherPosition);
             EnsureFriendAvailabilitySeed();
 
             _harmony = new Harmony(PluginGuid);
@@ -51,14 +58,20 @@ namespace ErenshorPartyTools
                 Logging.LogError("Erenshor Party Tools failed to patch: " + ex);
                 return;
             }
-            Logging.LogInfo("Erenshor Party Tools loaded. Use F7 or /tools for the command menu; commands: /ready, /roll [max], /rollparty [max], /ptwho.");
+
+            try { _auraProvider = new PartyToolsSuiteAuraProvider(this); }
+            catch (Exception ex) { Logging.LogError("Erenshor Party Tools Suite Aura provider failed to register: " + ex); }
+
+            Logging.LogInfo("Erenshor Party Tools loaded. Use the retained launcher/Hub panel; compatibility commands: /tools, /ready, /roll [max], /rollparty [max], /ptwho.");
         }
 
         private void InitializeConfigEntries()
         {
-            _panelOffsetX = new PartyToolsConfigEntry<float>(delegate { return _settings.PanelOffsetX; }, delegate(float v) { _settings.PanelOffsetX = v; });
-            _panelOffsetY = new PartyToolsConfigEntry<float>(delegate { return _settings.PanelOffsetY; }, delegate(float v) { _settings.PanelOffsetY = v; });
-            _openMenuKey = new PartyToolsConfigEntry<UnityEngine.KeyCode>(delegate { return _settings.OpenMenuKey; }, delegate(UnityEngine.KeyCode v) { _settings.OpenMenuKey = v; });
+            _panelNormalizedX = new PartyToolsConfigEntry<float>(delegate { return _settings.PanelNormalizedX; }, delegate(float v) { _settings.PanelNormalizedX = v; });
+            _panelNormalizedY = new PartyToolsConfigEntry<float>(delegate { return _settings.PanelNormalizedY; }, delegate(float v) { _settings.PanelNormalizedY = v; });
+            _showLauncher = new PartyToolsConfigEntry<bool>(delegate { return _settings.ShowLauncher; }, delegate(bool v) { _settings.ShowLauncher = v; });
+            _launcherNormalizedX = new PartyToolsConfigEntry<float>(delegate { return _settings.LauncherNormalizedX; }, delegate(float v) { _settings.LauncherNormalizedX = v; });
+            _launcherNormalizedY = new PartyToolsConfigEntry<float>(delegate { return _settings.LauncherNormalizedY; }, delegate(float v) { _settings.LauncherNormalizedY = v; });
             _rollChatterEnabled = new PartyToolsConfigEntry<bool>(delegate { return _settings.RollChatterEnabled; }, delegate(bool v) { _settings.RollChatterEnabled = v; });
             _friendAvailabilityEnabled = new PartyToolsConfigEntry<bool>(delegate { return _settings.FriendAvailabilityEnabled; }, delegate(bool v) { _settings.FriendAvailabilityEnabled = v; });
             _friendAvailabilitySessionHours = new PartyToolsConfigEntry<int>(delegate { return _settings.FriendAvailabilitySessionHours; }, delegate(int v) { _settings.FriendAvailabilitySessionHours = v; });
@@ -70,30 +83,27 @@ namespace ErenshorPartyTools
         {
             try
             {
-                if (_openMenuKey != null && UnityEngine.Input.GetKeyDown(_openMenuKey.Value))
+                bool ready = SuiteUiPolicy.IsGameplayReady();
+                if (_pendingExternalClose) { _pendingExternalClose = false; PartyToolsPanel.Close(); }
+                if (_pendingExternalOpen) { _pendingExternalOpen = false; if (ready) PartyToolsPanel.ShowCommandMenu(HandleMenuAction); }
+                if (_pendingControlAction != 0 && ready)
                 {
-                    if (PartyToolsPanel.IsCommandMenuOpen) PartyToolsPanel.Close();
-                    else PartyToolsPanel.ShowCommandMenu(HandleMenuAction);
+                    int action = _pendingControlAction; int sides = _pendingControlSides;
+                    _pendingControlAction = 0; _pendingControlSides = 0;
+                    if (action == 1) ShowReadyCheck();
+                    else if (action == 2) ShowLocalRoll(sides, true);
+                    else if (action == 3) ShowPartyRoll(sides);
+                    else if (action == 4) ShowFriendAvailability();
                 }
-                PartyToolsPanel.Tick();
+                if (!ready) { _pendingControlAction = 0; _pendingControlSides = 0; PartyToolsPanel.Close(); }
+                bool bridge = _auraProvider != null && _auraProvider.Registered;
+                bool launcher = SuiteLauncherPolicy.ShouldShow(ready, SuiteUiPolicy.IsHubAvailable(), bridge, ShowLauncherPreference);
+                PartyToolsPanel.Tick(launcher);
             }
             catch (Exception ex)
             {
-                Logging.LogError("Party Tools update failed: " + ex);
-                PartyToolsPanel.Close();
-            }
-        }
-
-        private void OnGUI()
-        {
-            try
-            {
-                PartyToolsPanel.Draw();
-            }
-            catch (Exception ex)
-            {
-                Logging.LogError("Party Tools UI failed: " + ex);
-                PartyToolsPanel.Close();
+                Logging.LogError("Party Tools update/UI failed: " + ex);
+                PartyToolsPanel.Close(); PartyToolsPanel.ReleaseDrag();
             }
         }
 
@@ -101,23 +111,43 @@ namespace ErenshorPartyTools
         {
             // Lunaris can unload/reload plugins while Erenshor is running. Release everything
             // this plugin owns before clearing the singleton.
+            try { if (_auraProvider != null) _auraProvider.Unregister(); } catch { }
+            _auraProvider = null;
             try { PartyToolsPanel.Dispose(); } catch { }
             try { CoopCompatibility.Shutdown(); } catch { }
             try { if (_harmony != null) _harmony.UnpatchSelf(); } catch { }
             _harmony = null;
+            _pendingExternalOpen = _pendingExternalClose = false; _pendingControlAction = _pendingControlSides = 0;
+            SuiteUiPolicy.Reset();
             Instance = null;
         }
 
-        private void PersistPanelPosition(float offsetX, float offsetY)
-        {
-            if (_panelOffsetX == null || _panelOffsetY == null) return;
-            if (PanelPositioning.NearlyEqual(_panelOffsetX.Value, offsetX) &&
-                PanelPositioning.NearlyEqual(_panelOffsetY.Value, offsetY)) return;
+        internal void RequestOpenToolsPanel() { _pendingExternalOpen = true; }
+        internal void RequestCloseToolsPanel() { _pendingExternalClose = true; }
+        internal void ControlReadyCheck() { _pendingControlAction = 1; _pendingControlSides = 0; }
+        internal void ControlRoll(int sides) { _pendingControlAction = 2; _pendingControlSides = sides; }
+        internal void ControlPartyRoll(int sides) { _pendingControlAction = 3; _pendingControlSides = sides; }
+        internal void ControlFriendAvailability() { _pendingControlAction = 4; _pendingControlSides = 0; }
 
-            _panelOffsetX.Value = offsetX;
-            _panelOffsetY.Value = offsetY;
-            Config.Save();
+        private void PersistPanelPosition(float x, float y)
+        {
+            if (_panelNormalizedX == null || _panelNormalizedY == null) return;
+            _panelNormalizedX.Value = x; _panelNormalizedY.Value = y; Config.Save();
         }
+
+        private void PersistLauncherPosition(float x, float y)
+        {
+            if (_launcherNormalizedX == null || _launcherNormalizedY == null) return;
+            _launcherNormalizedX.Value = x; _launcherNormalizedY.Value = y; Config.Save();
+        }
+
+        internal bool ShowLauncherPreference { get { return _showLauncher == null || _showLauncher.Value; } }
+        internal bool RollChatterPreference { get { return _rollChatterEnabled != null && _rollChatterEnabled.Value; } }
+        internal bool FriendFallbackPreference { get { return _friendAvailabilityEnabled != null && _friendAvailabilityEnabled.Value; } }
+        internal void SetShowLauncherPreference(bool value) { if (_showLauncher != null) { _showLauncher.Value = value; Config.Save(); } }
+        internal void SetRollChatterPreference(bool value) { if (_rollChatterEnabled != null) { _rollChatterEnabled.Value = value; Config.Save(); } }
+        internal void SetFriendFallbackPreference(bool value) { if (_friendAvailabilityEnabled != null) { _friendAvailabilityEnabled.Value = value; Config.Save(); } }
+        internal void ResetLauncherPosition() { if (_launcherNormalizedX != null) _launcherNormalizedX.Value = PartyToolsUiGeometry.Unset; if (_launcherNormalizedY != null) _launcherNormalizedY.Value = PartyToolsUiGeometry.Unset; PartyToolsPanel.ResetLauncherPosition(); Config.Save(); }
 
         internal void Chat(string message, string color)
         {
@@ -205,7 +235,7 @@ namespace ErenshorPartyTools
                     return true;
                 }
 
-                ShowLocalRoll(sides);
+                ShowLocalRoll(sides, false);
                 return true;
             }
 
@@ -217,7 +247,7 @@ namespace ErenshorPartyTools
             switch (action)
             {
                 case PartyToolsAction.ReadyCheck: ShowReadyCheck(); break;
-                case PartyToolsAction.Roll: ShowLocalRoll(100); break;
+                case PartyToolsAction.Roll: ShowLocalRoll(100, true); break;
                 case PartyToolsAction.PartyRoll: ShowPartyRoll(100); break;
                 case PartyToolsAction.FriendAvailability: ShowFriendAvailability(); break;
             }
@@ -234,11 +264,12 @@ namespace ErenshorPartyTools
             catch (Exception ex) { Logging.LogError("Party Tools ready-check UI failed: " + ex); }
         }
 
-        private void ShowLocalRoll(int sides)
+        private void ShowLocalRoll(int sides, bool showPanel)
         {
             int value = Roller.Roll(sides);
             string name = PartyStateReader.ReadPlayerName();
             Chat(name + " rolls " + value.ToString(CultureInfo.InvariantCulture) + " (1-" + sides.ToString(CultureInfo.InvariantCulture) + ").", "lightblue");
+            if (showPanel) PartyToolsPanel.ShowLocalRoll(name, sides, value);
         }
 
         private void ShowPartyRoll(int sides)
@@ -349,12 +380,7 @@ namespace ErenshorPartyTools
 
         private static bool TryParseSides(string argument, out int sides)
         {
-            sides = 100;
-            if (string.IsNullOrWhiteSpace(argument)) return true;
-            string value = argument.Trim();
-            if (value.IndexOfAny(new char[] { ' ', '\t', '\r', '\n' }) >= 0) return false;
-            if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out sides)) return false;
-            return sides >= 1 && sides <= MaximumRollSides;
+            return PartyToolsCommandPolicy.TryParseSides(argument, MaximumRollSides, out sides);
         }
 
         private void EnsureFriendAvailabilitySeed()
@@ -397,44 +423,4 @@ namespace ErenshorPartyTools
         }
     }
 
-    [HarmonyPatch(typeof(PlayerControl), "LeftClick")]
-    internal static class PartyToolsPanelLeftClickPatch
-    {
-        [HarmonyPrefix]
-        private static bool Prefix()
-        {
-            try { return !PartyToolsPanel.PointerIsOverPanel(new UnityEngine.Vector2(UnityEngine.Input.mousePosition.x, UnityEngine.Screen.height - UnityEngine.Input.mousePosition.y)); }
-            catch { return true; }
-        }
-    }
-
-    [HarmonyPatch(typeof(csMouseOrbit), "LateUpdate")]
-    internal static class PartyToolsCameraLookPatch
-    {
-        private static csMouseOrbit _muted;
-        private static float _x;
-        private static float _y;
-
-        private static void Prefix(csMouseOrbit __instance)
-        {
-            Restore();
-            try
-            {
-                UnityEngine.Vector2 point = new UnityEngine.Vector2(UnityEngine.Input.mousePosition.x, UnityEngine.Screen.height - UnityEngine.Input.mousePosition.y);
-                if (__instance == null || !PartyToolsPanel.PointerIsOverPanel(point)) return;
-                _x = __instance.xSpeed; _y = __instance.ySpeed;
-                __instance.xSpeed = 0f; __instance.ySpeed = 0f; _muted = __instance;
-            }
-            catch { }
-        }
-
-        private static void Postfix() { Restore(); }
-
-        private static void Restore()
-        {
-            csMouseOrbit orbit = _muted; _muted = null;
-            if (orbit == null) return;
-            try { orbit.xSpeed = _x; orbit.ySpeed = _y; } catch { }
-        }
-    }
 }

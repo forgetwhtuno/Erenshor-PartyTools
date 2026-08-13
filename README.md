@@ -2,17 +2,19 @@
 
 Party Tools is a lightweight social/diagnostic utility for local Erenshor parties. It does not control combat, movement, healing, loot, rolls in the game engine, or rewards.
 
-## Commands and menu
+## Commands and panel
 
 ```text
-/tools                    open the command menu
+/tools                    open the retained Party Tools panel
 /ready                    show a local-party ready check
 /roll [maximum]           roll for the player, 1..1,000,000
 /rollparty [maximum]      display cosmetic rolls for the current local party
 /ptwho                    show configured/native friend availability
 ```
 
-`F7` opens the menu by default. The key and panel offsets are configurable. Panels use the shared upper-right/below-minimap layout, persist a clamped drag position, suppress world clicks/camera movement under the panel, and close on timeout or relevant scene changes.
+Normal mouse access is through the retained-uGUI **Party Tools** launcher or Suite Hub's **Open Panel** action. There is no polled global hotkey for normal access; the old F7 config value is retained only as legacy config compatibility. The panel has a visible X, a dedicated non-button drag surface, normalized position persistence, resolution reclamping, and a scrollable result area.
+
+The same four deterministic tools are available as panel buttons: **Ready Check**, **Roll 1-100**, **Party Roll 1-100**, and **Friends Online**. Commands retain their exact syntax/bounds and remain useful as compatibility/debug recovery paths.
 
 ## Ready checks
 
@@ -28,13 +30,13 @@ Party Tools is a lightweight social/diagnostic utility for local Erenshor partie
 
 ## Compatibility and safety
 
-Party Tools uses narrow Harmony command interception and read-only state inspection. It preserves commands it does not own, is raid-aware, keeps panel work off high-frequency scans, and fails closed when native party/friend data is unavailable. It has no Deep Sims, COOP, Ollama, network, or gameplay dependency.
+Party Tools uses narrow Harmony command interception and read-only state inspection. Production UI is retained uGUI; it does not patch player clicks or camera orbit and never forces `EditUIMode`. It preserves commands it does not own, stays deliberately limited in raids, keeps panel refresh bounded, and fails closed when native party/friend data is unavailable. It has no Deep Sims, Ollama, network, or gameplay dependency; COOP compatibility is runtime-detected so remote-human readiness is never invented.
 
 ## Build
 
 This version requires **native Lunaris** — BepInEx is no longer required. `BUILD_AND_INSTALL.ps1` compiles the plugin and installs it to `<Erenshor>\plugins\ErenshorPartyTools.dll`; Lunaris manages enable/disable and config. The plugin identifier is `forgetwhtuno.erenshor.partytools`, version `0.1.2`.
 
-**Status:** this native build compiles cleanly against the installed Lunaris/Assembly-CSharp and passes its full deterministic test suite. It has not yet been live-tested in-game under Lunaris (enable/disable/reload behavior). Do not assume hot-reload safety until that pass is done. A legacy BepInEx release remains available in this repository's Git history.
+**Status:** the native-Lunaris baseline previously compiled against the installed Lunaris/Assembly-CSharp. The retained-uGUI workstream changes the UI/source surface and therefore still requires a fresh current-assembly compile, deterministic test run, and live enable/disable/reload validation before release. A legacy BepInEx release remains available in this repository's Git history.
 
 ## Credits and Inspiration
 
@@ -47,3 +49,14 @@ This version requires **native Lunaris** — BepInEx is no longer required. `BUI
 This project has been developed heavily with AI-assisted coding tools. The goal has been to build features I wanted to use in Erenshor, with development guided through design, testing, playtesting, audits, and iteration against the game. Bug reports, code review, corrections, and contributions from experienced Erenshor modders are welcome.
 
 This is an unofficial, community-made mod for Erenshor and is not affiliated with or endorsed by the game's developer.
+
+
+## Optional Suite Hub integration
+
+Erenshor Suite Hub is **optional**. Party Tools exposes its versioned `PartyToolsControlApi` through Aura without referencing Hub types or assuming Hub load order. Hub can show concise state, `Show Party Tools launcher`, roll-chatter/friend-fallback settings, and the conventional `openPanel` action. Additional action IDs remain available over the Aura transport and independently revalidate through the ControlApi.
+
+The retained panel and commands stay independently usable. Launcher fallback is mandatory: with Hub absent/unusable or this module's bridge unregistered, the on-screen Party Tools launcher is forced visible even when the saved Hub-era preference is off. With Hub and the bridge usable, the preference is obeyed.
+
+Ready-check inference, roll bounds/output behavior, raid limitations, friend availability, and COOP remote-human handling remain deterministic and authoritative in the existing Party Tools logic.
+
+The retained-uGUI migration still requires a current-assembly compile and live Lunaris hot-reload pass before release.

@@ -144,6 +144,13 @@ namespace ErenshorPartyTools
             return position;
         }
 
+        internal void Reset()
+        {
+            if (!SetOffsets(0f, 0f)) return;
+            _dirty = false;
+            Persist();
+        }
+
         internal void CommitIfMoved()
         {
             if (!_dirty) return;
