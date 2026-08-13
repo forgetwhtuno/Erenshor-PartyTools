@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$GameDir = "",
     [string]$LunarisLibDir = ""
 )
@@ -79,10 +79,10 @@ $refs = @(
     (Join-Path $managed "netstandard.dll"),
     (Join-Path $managed "UnityEngine.dll"),
     (Join-Path $managed "UnityEngine.CoreModule.dll"),
-    (Join-Path $managed "UnityEngine.InputLegacyModule.dll"),
+    (Join-Path $managed "UnityEngine.UIModule.dll"),
     (Join-Path $managed "UnityEngine.UI.dll"),
-    (Join-Path $managed "UnityEngine.IMGUIModule.dll"),
-    (Join-Path $managed "UnityEngine.TextRenderingModule.dll")
+    (Join-Path $managed "UnityEngine.TextRenderingModule.dll"),
+    (Join-Path $managed "Unity.TextMeshPro.dll")
 )
 
 foreach ($ref in $refs) {
@@ -129,3 +129,4 @@ finally {
 
 Write-Host "Installed Erenshor Party Tools to $out" -ForegroundColor Green
 Write-Host "Lunaris runtime libraries are NOT copied into the plugin folder by this script." -ForegroundColor Green
+

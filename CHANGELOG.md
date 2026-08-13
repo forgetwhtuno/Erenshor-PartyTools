@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - retained uGUI / Suite control migration
+
+- Replaced the transient IMGUI/F7 menu with one persistent retained-uGUI panel and small launcher. Removed Party Tools UI click/camera Harmony workarounds and normal-access global hotkey polling; `/tools`, `/ready`, `/roll`, `/rollparty`, and `/ptwho` command semantics remain unchanged.
+- Added EventSystem drag guards, normalized bottom-left position persistence, resolution reclamping, visible X/reset controls, and scrollable in-place result rows. Ready rows refresh values without rebuilding the whole panel.
+- Added `showLauncher` Aura setting with mandatory fallback visibility whenever Hub is absent/unusable or this module's Aura bridge is not registered. Hub also exposes the existing roll-chatter and friend-fallback settings plus `openPanel`.
+- Added deterministic tests for launcher policy, normalized geometry, roll bounds/bad/overflow input, repeated parsing, ready-state presentation, and zone/not-ready panel cleanup. Ready checks remain deterministic and remote COOP humans are never inferred ready.
+- Current-assembly compile/live Lunaris validation remains required before release.
+
 ## Unreleased (native Lunaris migration)
 
 - Converted the plugin host from BepInEx (`BaseUnityPlugin`/`[BepInPlugin]`/`[BepInProcess]`) to
@@ -56,3 +64,11 @@
 - Added reflection-only COOP exclusion for remote humans and remote-owned Sims.
 - Added automatic panel timeout and zone-change cleanup.
 - Added build/install and uninstall helpers.
+
+
+## Unreleased - Suite UI/API coherence handoff
+
+- Added optional, versioned `PartyToolsControlApi` discovery/control surface for Suite Hub without a hard Hub dependency.
+- Kept standalone commands and core gameplay authority intact.
+- Documented the retained panel/launcher policy and Lunaris live-test requirement.
+- Gated F7/Tools UI until the native world state has remained stable; no raid automation or AI added.

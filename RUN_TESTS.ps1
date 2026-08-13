@@ -20,8 +20,12 @@ $out = Join-Path $env:TEMP "ErenshorPartyTools.PanelPositioningTests.exe"
     (Join-Path $ScriptRoot "src\NativeFriendRosterPolicy.cs") `
     (Join-Path $ScriptRoot "src\PartyModels.cs") `
     (Join-Path $ScriptRoot "src\PartyRollSocial.cs") `
+    (Join-Path $ScriptRoot "src\PartyToolsCommandPolicy.cs") `
+    (Join-Path $ScriptRoot "src\PartyToolsUiGeometry.cs") `
+    (Join-Path $ScriptRoot "src\SuiteLauncherPolicy.cs") `
     (Join-Path $ScriptRoot "tests\FriendAvailabilityTests.cs") `
     (Join-Path $ScriptRoot "tests\PartyRollSocialTests.cs") `
+    (Join-Path $ScriptRoot "tests\UiAndCommandPolicyTests.cs") `
     (Join-Path $ScriptRoot "tests\PanelPositioningTests.cs")
 if ($LASTEXITCODE -ne 0) {
     throw "Panel positioning test compilation failed."

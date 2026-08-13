@@ -27,16 +27,29 @@ namespace ErenshorPartyTools
     {
         public PartyToolsSettings() { }
 
-        [Config("PanelOffsetX", "UI",
-            "Persisted horizontal offset from Party Tools' default upper-right position. Updated when a Party Tools panel finishes moving.")]
+        [Config("PanelOffsetX", "UI.Legacy", "Legacy top-origin panel offset retained for config compatibility but ignored by retained uGUI.")]
         public float PanelOffsetX = 0f;
 
-        [Config("PanelOffsetY", "UI",
-            "Persisted vertical offset from Party Tools' default position below the normal upper-right minimap area. Updated when a Party Tools panel finishes moving.")]
+        [Config("PanelOffsetY", "UI.Legacy", "Legacy top-origin panel offset retained for config compatibility but ignored by retained uGUI.")]
         public float PanelOffsetY = 0f;
 
-        [Config("OpenMenuKey", "UI",
-            "Keyboard shortcut to toggle the Party Tools command menu. Use /tools if this conflicts with another mod.")]
+        [Config("PanelNormalizedX", "UI", "Retained-uGUI panel horizontal position normalized 0..1 from bottom-left. -1 uses the safe default.")]
+        public float PanelNormalizedX = -1f;
+
+        [Config("PanelNormalizedY", "UI", "Retained-uGUI panel vertical position normalized 0..1 from bottom-left. -1 uses the safe default.")]
+        public float PanelNormalizedY = -1f;
+
+        [Config("ShowLauncher", "UI", "Show the Party Tools launcher when Suite Hub is usable. If Hub or this module bridge is unavailable, fallback visibility is forced on.")]
+        public bool ShowLauncher = true;
+
+        [Config("LauncherNormalizedX", "UI", "Retained-uGUI launcher horizontal position normalized 0..1 from bottom-left. -1 uses the safe default.")]
+        public float LauncherNormalizedX = -1f;
+
+        [Config("LauncherNormalizedY", "UI", "Retained-uGUI launcher vertical position normalized 0..1 from bottom-left. -1 uses the safe default.")]
+        public float LauncherNormalizedY = -1f;
+
+        [Config("OpenMenuKey", "UI.Legacy",
+            "Deprecated compatibility value. Retained uGUI uses its launcher/Hub Open Panel action; no global hotkey is required or polled for normal access.")]
         public UnityEngine.KeyCode OpenMenuKey = UnityEngine.KeyCode.F7;
 
         [Config("Enabled", "Roll Chatter",
