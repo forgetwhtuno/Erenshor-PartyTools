@@ -12,7 +12,7 @@ The mod intentionally has only the ready check, social rolls, and friend-availab
    with the existing short unavailable message and does not open a result panel.
 4. Press `Escape`, press F7 again, wait about 30 seconds, and zone while the
    menu is open; confirm each closes it safely.
-5. Change `UI/OpenMenuKey` in the BepInEx config and confirm the new key
+5. Change `UI/OpenMenuKey` in the Lunaris config UI and confirm the new key
    toggles the menu. Confirm `/tools` still opens it after changing the key.
 6. Confirm `/tools nope` shows one short usage message.
 
@@ -41,9 +41,9 @@ Run `BUILD_AND_INSTALL.bat` against the currently installed Erenshor build.
 
 Pass criteria:
 
-- compilation succeeds against the installed `Assembly-CSharp.dll` and Unity/BepInEx assemblies;
-- `BepInEx\plugins\ErenshorPartyTools\ErenshorPartyTools.dll` is produced;
-- the BepInEx log reports `Erenshor Party Tools loaded` with no patch exception.
+- compilation succeeds against the installed `Assembly-CSharp.dll` and the Lunaris/Unity assemblies;
+- `<Erenshor>\plugins\ErenshorPartyTools.dll` is produced;
+- Lunaris reports the plugin loaded with no patch exception.
 
 ## `/ready`
 

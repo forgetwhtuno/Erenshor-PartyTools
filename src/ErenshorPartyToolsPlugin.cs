@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using BepInEx;
-using BepInEx.Configuration;
+using Lunaris;
+using Lunaris.Config;
 using HarmonyLib;
 
 namespace ErenshorPartyTools
 {
-    [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    [BepInProcess("Erenshor.exe")]
-    public sealed class ErenshorPartyToolsPlugin : BaseUnityPlugin
+    [LunarisPlugin(PluginGuid, PluginVersion, "forgetwhtuno",
+        "Deterministic party utilities: ready checks, cosmetic rolls, and friend availability.")]
+    [LunarisPermission(LunarisPermission.Reflection | LunarisPermission.Harmony)]
+    public sealed class ErenshorPartyToolsPlugin : LunarisPlugin
     {
         internal const string PluginGuid = "forgetwhtuno.erenshor.partytools";
         internal const string PluginName = "Erenshor Party Tools";
@@ -19,37 +20,25 @@ namespace ErenshorPartyTools
         internal static ErenshorPartyToolsPlugin Instance;
 
         private Harmony _harmony;
-        private ConfigEntry<float> _panelOffsetX;
-        private ConfigEntry<float> _panelOffsetY;
-        private ConfigEntry<bool> _friendAvailabilityEnabled;
-        private ConfigEntry<int> _friendAvailabilitySessionHours;
-        private ConfigEntry<string> _friendAvailabilitySeed;
-        private ConfigEntry<string> _friendAvailabilityFriends;
-        private ConfigEntry<UnityEngine.KeyCode> _openMenuKey;
-        private ConfigEntry<bool> _rollChatterEnabled;
+        private PartyToolsSettings _settings;
+        private PartyToolsConfigEntry<float> _panelOffsetX;
+        private PartyToolsConfigEntry<float> _panelOffsetY;
+        private PartyToolsConfigEntry<bool> _friendAvailabilityEnabled;
+        private PartyToolsConfigEntry<int> _friendAvailabilitySessionHours;
+        private PartyToolsConfigEntry<string> _friendAvailabilitySeed;
+        private PartyToolsConfigEntry<string> _friendAvailabilityFriends;
+        private PartyToolsConfigEntry<UnityEngine.KeyCode> _openMenuKey;
+        private PartyToolsConfigEntry<bool> _rollChatterEnabled;
 
         private void Awake()
         {
             Instance = this;
 
-            _panelOffsetX = Config.Bind("UI", "PanelOffsetX", 0f,
-                "Persisted horizontal offset from Party Tools' default upper-right position. Updated when a Party Tools panel finishes moving.");
-            _panelOffsetY = Config.Bind("UI", "PanelOffsetY", 0f,
-                "Persisted vertical offset from Party Tools' default position below the normal upper-right minimap area. Updated when a Party Tools panel finishes moving.");
-            PartyToolsPanel.ConfigurePosition(_panelOffsetX.Value, _panelOffsetY.Value, PersistPanelPosition);
-            _openMenuKey = Config.Bind("UI", "OpenMenuKey", UnityEngine.KeyCode.F7,
-                "Keyboard shortcut to toggle the Party Tools command menu. Use /tools if this conflicts with another mod.");
-            _rollChatterEnabled = Config.Bind("Roll Chatter", "Enabled", true,
-                "Show local cosmetic party-roll chat: the player announces, local Sims acknowledge, every result is displayed, and one untied winner reacts. This does not control loot or gameplay.");
+            _settings = new PartyToolsSettings();
+            Config.Register(ref _settings);
+            InitializeConfigEntries();
 
-            _friendAvailabilityEnabled = Config.Bind("FriendAvailability", "Enabled", true,
-                "Compatibility fallback only: when false, manually configured fallback friends are shown as AVAILABLE unless native game state verifies they are grouped. The native current-character friend roster is always preferred.");
-            _friendAvailabilitySessionHours = Config.Bind("FriendAvailability", "SessionHours", FriendAvailability.DefaultSessionHours,
-                "Real-world availability block duration in hours (1-24). Default: 3.");
-            _friendAvailabilitySeed = Config.Bind("FriendAvailability", "Seed", string.Empty,
-                "Persistent Party Tools seed. Generated once when blank; do not change during a session unless intentionally changing simulated availability.");
-            _friendAvailabilityFriends = Config.Bind("FriendAvailability", "Friends", string.Empty,
-                "Compatibility fallback only: comma-separated Sim names used if the native current-character friend roster is temporarily unavailable.");
+            PartyToolsPanel.ConfigurePosition(_panelOffsetX.Value, _panelOffsetY.Value, PersistPanelPosition);
             EnsureFriendAvailabilitySeed();
 
             _harmony = new Harmony(PluginGuid);
@@ -59,10 +48,22 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logger.LogError("Erenshor Party Tools failed to patch: " + ex);
+                Logging.LogError("Erenshor Party Tools failed to patch: " + ex);
                 return;
             }
-            Logger.LogInfo("Erenshor Party Tools loaded. Use F7 or /tools for the command menu; commands: /ready, /roll [max], /rollparty [max], /ptwho.");
+            Logging.LogInfo("Erenshor Party Tools loaded. Use F7 or /tools for the command menu; commands: /ready, /roll [max], /rollparty [max], /ptwho.");
+        }
+
+        private void InitializeConfigEntries()
+        {
+            _panelOffsetX = new PartyToolsConfigEntry<float>(delegate { return _settings.PanelOffsetX; }, delegate(float v) { _settings.PanelOffsetX = v; });
+            _panelOffsetY = new PartyToolsConfigEntry<float>(delegate { return _settings.PanelOffsetY; }, delegate(float v) { _settings.PanelOffsetY = v; });
+            _openMenuKey = new PartyToolsConfigEntry<UnityEngine.KeyCode>(delegate { return _settings.OpenMenuKey; }, delegate(UnityEngine.KeyCode v) { _settings.OpenMenuKey = v; });
+            _rollChatterEnabled = new PartyToolsConfigEntry<bool>(delegate { return _settings.RollChatterEnabled; }, delegate(bool v) { _settings.RollChatterEnabled = v; });
+            _friendAvailabilityEnabled = new PartyToolsConfigEntry<bool>(delegate { return _settings.FriendAvailabilityEnabled; }, delegate(bool v) { _settings.FriendAvailabilityEnabled = v; });
+            _friendAvailabilitySessionHours = new PartyToolsConfigEntry<int>(delegate { return _settings.FriendAvailabilitySessionHours; }, delegate(int v) { _settings.FriendAvailabilitySessionHours = v; });
+            _friendAvailabilitySeed = new PartyToolsConfigEntry<string>(delegate { return _settings.FriendAvailabilitySeed; }, delegate(string v) { _settings.FriendAvailabilitySeed = v; });
+            _friendAvailabilityFriends = new PartyToolsConfigEntry<string>(delegate { return _settings.FriendAvailabilityFriends; }, delegate(string v) { _settings.FriendAvailabilityFriends = v; });
         }
 
         private void Update()
@@ -78,7 +79,7 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logger.LogError("Party Tools update failed: " + ex);
+                Logging.LogError("Party Tools update failed: " + ex);
                 PartyToolsPanel.Close();
             }
         }
@@ -91,15 +92,19 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logger.LogError("Party Tools UI failed: " + ex);
+                Logging.LogError("Party Tools UI failed: " + ex);
                 PartyToolsPanel.Close();
             }
         }
 
         private void OnDestroy()
         {
+            // Lunaris can unload/reload plugins while Erenshor is running. Release everything
+            // this plugin owns before clearing the singleton.
             try { PartyToolsPanel.Dispose(); } catch { }
+            try { CoopCompatibility.Shutdown(); } catch { }
             try { if (_harmony != null) _harmony.UnpatchSelf(); } catch { }
+            _harmony = null;
             Instance = null;
         }
 
@@ -109,18 +114,9 @@ namespace ErenshorPartyTools
             if (PanelPositioning.NearlyEqual(_panelOffsetX.Value, offsetX) &&
                 PanelPositioning.NearlyEqual(_panelOffsetY.Value, offsetY)) return;
 
-            bool previousSaveOnSet = Config.SaveOnConfigSet;
-            try
-            {
-                Config.SaveOnConfigSet = false;
-                _panelOffsetX.Value = offsetX;
-                _panelOffsetY.Value = offsetY;
-                Config.Save();
-            }
-            finally
-            {
-                Config.SaveOnConfigSet = previousSaveOnSet;
-            }
+            _panelOffsetX.Value = offsetX;
+            _panelOffsetY.Value = offsetY;
+            Config.Save();
         }
 
         internal void Chat(string message, string color)
@@ -135,7 +131,7 @@ namespace ErenshorPartyTools
 
         internal void LogPatchError(Exception ex)
         {
-            try { Logger.LogError("Party Tools command patch failed: " + ex); }
+            try { Logging.LogError("Party Tools command patch failed: " + ex); }
             catch { }
         }
 
@@ -235,7 +231,7 @@ namespace ErenshorPartyTools
                 return;
             }
             try { PartyToolsPanel.ShowReadyCheck(); }
-            catch (Exception ex) { Logger.LogError("Party Tools ready-check UI failed: " + ex); }
+            catch (Exception ex) { Logging.LogError("Party Tools ready-check UI failed: " + ex); }
         }
 
         private void ShowLocalRoll(int sides)
@@ -268,7 +264,7 @@ namespace ErenshorPartyTools
                 if (_rollChatterEnabled != null && _rollChatterEnabled.Value)
                     ShowPartyRollChatter(sides, results);
             }
-            catch (Exception ex) { Logger.LogError("Party Tools /rollparty handling failed: " + ex); }
+            catch (Exception ex) { Logging.LogError("Party Tools /rollparty handling failed: " + ex); }
         }
 
         private void ShowPartyRollChatter(int sides, List<PartyRollResult> results)
@@ -311,7 +307,7 @@ namespace ErenshorPartyTools
                 List<PanelRow> rows = PartyStateReader.BuildNativeFriendAvailabilityRows(out nativeRosterAvailable);
                 if (nativeRosterAvailable)
                 {
-                    Logger.LogInfo("/ptwho read " + rows.Count.ToString(CultureInfo.InvariantCulture) +
+                    Logging.LogInfo("/ptwho read " + rows.Count.ToString(CultureInfo.InvariantCulture) +
                         " friend(s) from Erenshor's native roster for the current character.");
                     if (rows.Count == 0)
                     {
@@ -338,7 +334,7 @@ namespace ErenshorPartyTools
                 }
                 PartyToolsPanel.ShowFriendAvailability(rows);
             }
-            catch (Exception ex) { Logger.LogError("Party Tools /ptwho handling failed: " + ex); }
+            catch (Exception ex) { Logging.LogError("Party Tools /ptwho handling failed: " + ex); }
         }
 
         private static bool TryMatchCommand(string raw, string command, out string argument)
