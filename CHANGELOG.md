@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6 - retained UI and Suite fallback alignment
+
+- Added the canonical standalone launcher visual contract and retained collapse/header behavior.
+- Preserved explicit Ready Check, rolls, Friends Online, camera-ownership, and Suite fallback behavior.
+- Deterministic tests pass; fresh native build and live integrated UI validation remain required.
+
 ## 0.1.5 - RC camera and gesture ownership
 
 - Claims only left-button gestures at pointer-down, reasserts while held, and releases on physical button loss, focus/pause loss, disable, destroy, readiness loss, close, zone, and unload.
