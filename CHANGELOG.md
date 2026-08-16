@@ -116,3 +116,7 @@
 - Kept standalone commands and core gameplay authority intact.
 - Documented the retained panel/launcher policy and Lunaris live-test requirement.
 - Gated F7/Tools UI until the native world state has remained stable; no raid automation or AI added.
+## 0.1.6 - Forgotten Roads launcher/header chrome
+
+- Standardized the standalone retained-uGUI launcher at 154x32 with programmatic grip marks and collection hover/pressed colors.
+- Standardized compact title and close-button dimensions without changing party actions or panel contents.

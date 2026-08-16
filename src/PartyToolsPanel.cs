@@ -31,9 +31,11 @@ namespace ErenshorPartyTools
         private static bool _open;
         private static bool _built;
         private static bool _launcherVisible;
+        private static bool _collapsed;
+        private static float _expandedHeight = Height;
         private static GameObject _root, _panelObject, _launcherObject;
         private static RectTransform _panel, _launcher, _rowContent;
-        private static RectTransform _header, _headerGrip, _closeRect, _statusRect, _actionsRect, _resultHeader, _viewport, _footerRect;
+        private static RectTransform _header, _headerGrip, _collapseRect, _collapseChevron, _closeRect, _statusRect, _actionsRect, _resultHeader, _viewport, _footerRect;
         private static TextMeshProUGUI _title, _status, _resultTitle, _footer, _launcherText, _launcherStateText, _rollChatterStateText;
         private static float _panelX = PartyToolsUiGeometry.Unset, _panelY = PartyToolsUiGeometry.Unset;
         private static float _launcherX = PartyToolsUiGeometry.Unset, _launcherY = PartyToolsUiGeometry.Unset;
@@ -163,9 +165,9 @@ namespace ErenshorPartyTools
             PartyToolsDragGuard.ForceReleaseIfOwned(); RowViews.Clear(); Rows.Clear();
             if (_root != null) { try { UnityEngine.Object.DestroyImmediate(_root); } catch { } }
             _root = _panelObject = _launcherObject = null; _panel = _launcher = _rowContent = null;
-            _header = _headerGrip = _closeRect = _statusRect = _actionsRect = _resultHeader = _viewport = _footerRect = null;
+            _header = _headerGrip = _collapseRect = _collapseChevron = _closeRect = _statusRect = _actionsRect = _resultHeader = _viewport = _footerRect = null;
             _title = _status = _resultTitle = _footer = _launcherText = _launcherStateText = _rollChatterStateText = null;
-            _built = false; _open = false; _launcherVisible = false; _mode = PanelMode.Overview; _rollSides = 0; _sceneName = null;
+            _built = false; _open = false; _launcherVisible = false; _collapsed = false; _expandedHeight = Height; _mode = PanelMode.Overview; _rollSides = 0; _sceneName = null;
             _lastActivatedAt = -1f; _readyStartedAt = -1f; _nextReadyRefresh = 0f; _nextPartyWhoRefresh = 0f; _nextOverviewRefresh = 0f;
             _screenW = _screenH = 0; _persistPanel = null; _persistLauncher = null;
         }
@@ -199,23 +201,31 @@ namespace ErenshorPartyTools
         {
             _launcherObject = MakePanel("Party Tools Launcher", _root.transform, PanelFill);
             _launcher = _launcherObject.GetComponent<RectTransform>(); BaseRect(_launcher, PartyToolsUiGeometry.LauncherWidth, PartyToolsUiGeometry.LauncherHeight);
-            RectTransform grip = MakeRect("Grip", _launcher, 18f, PartyToolsUiGeometry.LauncherHeight, 0f, 0f); AddImage(grip, CyanAccent);
+            RectTransform grip = MakeRect("Grip", _launcher, StandaloneLauncherVisual.GripWidth, PartyToolsUiGeometry.LauncherHeight, 0f, 0f); AddImage(grip, StandaloneLauncherVisual.GripBackground);
             PartyToolsDragGuard drag = grip.gameObject.AddComponent<PartyToolsDragGuard>(); drag.Target = _launcher; drag.Completed = PersistLauncherPosition;
-            AddText(grip, "⋮", 18, TextAlignmentOptions.Center, Color.white);
-            RectTransform button = MakeRect("Open", _launcher, PartyToolsUiGeometry.LauncherWidth - 18f, PartyToolsUiGeometry.LauncherHeight, 18f, 0f);
-            Button b = AddButton(button, "Party Tools", delegate { PartyToolsControlApi.TogglePanel(); }); _launcherText = b.GetComponentInChildren<TextMeshProUGUI>();
+            StandaloneLauncherVisual.StyleGrip(grip);
+            RectTransform button = MakeRect("Open", _launcher, PartyToolsUiGeometry.LauncherWidth - StandaloneLauncherVisual.GripWidth, PartyToolsUiGeometry.LauncherHeight, StandaloneLauncherVisual.GripWidth, 0f);
+            Button b = AddButton(button, "PARTY TOOLS", delegate { PartyToolsControlApi.TogglePanel(); }); _launcherText = b.GetComponentInChildren<TextMeshProUGUI>();
+            StandaloneLauncherVisual.StyleButton(b, _launcherText);
+            StandaloneLauncherVisual.StyleRoot(_launcher);
         }
 
         private static void BuildPanel()
         {
             _panelObject = MakePanel("Party Tools Panel", _root.transform, PanelFill);
             _panel = _panelObject.GetComponent<RectTransform>(); BaseRect(_panel, Width, Height);
-            _header = MakeRect("Header", _panel, Width, 34f, 0f, Height - 34f); AddImage(_header, HeaderFill);
-            _headerGrip = MakeRect("Header Drag Surface", _header, Width - 46f, 34f, 0f, 0f);
+            _header = MakeRect("Header", _panel, Width, PartyToolsUiGeometry.HeaderHeight, 0f, Height - PartyToolsUiGeometry.HeaderHeight); AddImage(_header, HeaderFill);
+
+            _collapseRect = MakeRect("Collapse", _header, 28f, 24f, 4f, 4f);
+            AddButton(_collapseRect, string.Empty, ToggleCollapsed);
+            _collapseChevron = _collapseRect;
+            StandaloneLauncherVisual.AddVerticalChevron(_collapseChevron, true);
+
+            _headerGrip = MakeRect("Header Drag Surface", _header, Width - 72f, PartyToolsUiGeometry.HeaderHeight, 36f, 0f);
             AddImage(_headerGrip, new Color(0f, 0f, 0f, 0f));
-            _title = AddText(_headerGrip, "PARTY TOOLS", 17, TextAlignmentOptions.MidlineLeft, TitleCyan); SetOffsets(_title.rectTransform, 10f, 0f, 0f, 0f);
+            _title = AddText(_headerGrip, "PARTY TOOLS", 15, TextAlignmentOptions.MidlineLeft, TitleCyan); SetOffsets(_title.rectTransform, 4f, 0f, 0f, 0f);
             PartyToolsDragGuard drag = _headerGrip.gameObject.AddComponent<PartyToolsDragGuard>(); drag.Target = _panel; drag.Completed = PersistPanelPosition; drag.Activated = TouchActivation;
-            _closeRect = MakeRect("Close", _header, 36f, 28f, Width - 40f, 3f); AddButton(_closeRect, "X", delegate { PartyToolsControlApi.ClosePanel(); });
+            _closeRect = MakeRect("Close", _header, 28f, 24f, Width - 32f, 4f); AddButton(_closeRect, "X", delegate { PartyToolsControlApi.ClosePanel(); });
 
             _statusRect = MakeRect("Status", _panel, Width - 20f, 36f, 10f, Height - 76f);
             _status = AddText(_statusRect, string.Empty, 13, TextAlignmentOptions.MidlineLeft, HintCyan);
@@ -250,12 +260,13 @@ namespace ErenshorPartyTools
 
             _footerRect = MakeRect("Footer", _panel, Width - 20f, 42f, 10f, 12f);
             _footer = AddText(_footerRect, "Ready checks and rolls for your current party. Commands remain available too.", 11, TextAlignmentOptions.TopLeft, HintCyan);
+            SetBodyVisible(true);
         }
 
         private static void UpdateLabels()
         {
             if (!_built) return;
-            if (_launcherText != null) _launcherText.text = "Party Tools";
+            if (_launcherText != null) _launcherText.text = "PARTY TOOLS";
             ErenshorPartyToolsPlugin plugin = ErenshorPartyToolsPlugin.Instance;
             bool raid = PartyStateReader.IsRaidActive();
             if (_status != null)
@@ -316,24 +327,95 @@ namespace ErenshorPartyTools
         }
 
         private static void ApplyPositions() { ApplyPanelPosition(); ApplyLauncherPosition(); }
-        private static void ApplyPanelPosition() { if(_panel==null)return; PartyToolsUiRect r=PartyToolsUiGeometry.ResolvePanel(_panelX,_panelY,Screen.width,Screen.height); ResizePanel(r.Width,r.Height); _panel.anchoredPosition=new Vector2(r.X,r.Y); PartyToolsUiGeometry.Normalize(r,Screen.width,Screen.height,out _panelX,out _panelY); }
+        private static void ApplyPanelPosition()
+        {
+            if(_panel==null)return;
+            PartyToolsUiRect expanded=PartyToolsUiGeometry.ResolvePanel(_panelX,_panelY,Screen.width,Screen.height);
+            _expandedHeight=expanded.Height;
+            PartyToolsUiRect visual=_collapsed?PartyToolsUiGeometry.CollapseFromExpanded(expanded,Screen.width,Screen.height):expanded;
+            ResizePanel(visual.Width,visual.Height);
+            _panel.anchoredPosition=new Vector2(visual.X,visual.Y);
+            PartyToolsUiGeometry.Normalize(expanded,Screen.width,Screen.height,out _panelX,out _panelY);
+        }
         private static void ApplyLauncherPosition() { if(_launcher==null)return; PartyToolsUiRect r=PartyToolsUiGeometry.ResolveLauncher(_launcherX,_launcherY,Screen.width,Screen.height); _launcher.anchoredPosition=new Vector2(r.X,r.Y); PartyToolsUiGeometry.Normalize(r,Screen.width,Screen.height,out _launcherX,out _launcherY); }
         private static void ResizePanel(float width,float height)
         {
             if(_panel==null)return; _panel.sizeDelta=new Vector2(width,height);
-            if(_header!=null){_header.sizeDelta=new Vector2(width,34f);_header.anchoredPosition=new Vector2(0f,height-34f);}
-            if(_headerGrip!=null)_headerGrip.sizeDelta=new Vector2(Math.Max(80f,width-46f),34f);
-            if(_closeRect!=null)_closeRect.anchoredPosition=new Vector2(Math.Max(4f,width-40f),3f);
+            if(_header!=null){_header.sizeDelta=new Vector2(width,PartyToolsUiGeometry.HeaderHeight);_header.anchoredPosition=new Vector2(0f,height-PartyToolsUiGeometry.HeaderHeight);}
+            if(_headerGrip!=null)_headerGrip.sizeDelta=new Vector2(Math.Max(80f,width-72f),PartyToolsUiGeometry.HeaderHeight);
+            if(_closeRect!=null)_closeRect.anchoredPosition=new Vector2(Math.Max(4f,width-32f),4f);
             if(_statusRect!=null){_statusRect.sizeDelta=new Vector2(Math.Max(80f,width-20f),36f);_statusRect.anchoredPosition=new Vector2(10f,height-76f);}
             if(_actionsRect!=null){_actionsRect.sizeDelta=new Vector2(Math.Max(80f,width-20f),108f);_actionsRect.anchoredPosition=new Vector2(10f,height-186f);}
             if(_resultHeader!=null){_resultHeader.sizeDelta=new Vector2(Math.Max(80f,width-20f),24f);_resultHeader.anchoredPosition=new Vector2(10f,height-216f);}
             PartyToolsPanelLayout layout = PartyToolsPanelLayoutPolicy.Resolve(height);
             if(_viewport!=null){_viewport.sizeDelta=new Vector2(Math.Max(80f,width-20f),layout.ViewportHeight);_viewport.anchoredPosition=new Vector2(10f,layout.ViewportBottom);}
             if(_rowContent!=null)_rowContent.sizeDelta=new Vector2(0f,_rowContent.sizeDelta.y);
-            if(_footerRect!=null){_footerRect.gameObject.SetActive(layout.ShowFooter);_footerRect.sizeDelta=new Vector2(Math.Max(80f,width-20f),42f);_footerRect.anchoredPosition=new Vector2(10f,12f);}
+            if(_footerRect!=null){_footerRect.gameObject.SetActive(!_collapsed&&layout.ShowFooter);_footerRect.sizeDelta=new Vector2(Math.Max(80f,width-20f),42f);_footerRect.anchoredPosition=new Vector2(10f,12f);}
         }
-        private static void PersistPanelPosition() { if(_panel==null)return; PartyToolsUiRect r=PartyToolsUiGeometry.Clamp(new PartyToolsUiRect(_panel.anchoredPosition.x,_panel.anchoredPosition.y,_panel.sizeDelta.x,_panel.sizeDelta.y),Screen.width,Screen.height); _panel.anchoredPosition=new Vector2(r.X,r.Y); PartyToolsUiGeometry.Normalize(r,Screen.width,Screen.height,out _panelX,out _panelY); if(_persistPanel!=null)_persistPanel(_panelX,_panelY); }
+        private static void PersistPanelPosition()
+        {
+            if(_panel==null)return;
+            PartyToolsUiRect visual=PartyToolsUiGeometry.Clamp(new PartyToolsUiRect(_panel.anchoredPosition.x,_panel.anchoredPosition.y,_panel.sizeDelta.x,_panel.sizeDelta.y),Screen.width,Screen.height);
+            _panel.anchoredPosition=new Vector2(visual.X,visual.Y);
+            PartyToolsUiRect expanded=_collapsed
+                ? PartyToolsUiGeometry.ExpandFromCollapsed(visual,_expandedHeight,Screen.width,Screen.height)
+                : visual;
+            PartyToolsUiGeometry.Normalize(expanded,Screen.width,Screen.height,out _panelX,out _panelY);
+            if(_persistPanel!=null)_persistPanel(_panelX,_panelY);
+        }
         private static void PersistLauncherPosition() { if(_launcher==null)return; PartyToolsUiRect r=PartyToolsUiGeometry.Clamp(new PartyToolsUiRect(_launcher.anchoredPosition.x,_launcher.anchoredPosition.y,PartyToolsUiGeometry.LauncherWidth,PartyToolsUiGeometry.LauncherHeight),Screen.width,Screen.height); _launcher.anchoredPosition=new Vector2(r.X,r.Y); PartyToolsUiGeometry.Normalize(r,Screen.width,Screen.height,out _launcherX,out _launcherY); if(_persistLauncher!=null)_persistLauncher(_launcherX,_launcherY); }
+
+        private static void ToggleCollapsed() { SetCollapsed(!_collapsed); }
+
+        private static void SetCollapsed(bool collapsed)
+        {
+            if(_panel==null){_collapsed=collapsed;return;}
+            if(_collapsed==collapsed){UpdateCollapseChevron();return;}
+
+            PartyToolsUiRect current=new PartyToolsUiRect(_panel.anchoredPosition.x,_panel.anchoredPosition.y,_panel.sizeDelta.x,_panel.sizeDelta.y);
+            PartyToolsUiRect next;
+            if(collapsed)
+            {
+                _expandedHeight=Math.Max(PartyToolsUiGeometry.HeaderHeight,current.Height);
+                next=PartyToolsUiGeometry.CollapseFromExpanded(current,Screen.width,Screen.height);
+                _collapsed=true;
+                ResizePanel(next.Width,next.Height);
+                SetBodyVisible(false);
+            }
+            else
+            {
+                next=PartyToolsUiGeometry.ExpandFromCollapsed(current,_expandedHeight,Screen.width,Screen.height);
+                _collapsed=false;
+                ResizePanel(next.Width,next.Height);
+                SetBodyVisible(true);
+            }
+            _panel.anchoredPosition=new Vector2(next.X,next.Y);
+            UpdateCollapseChevron();
+            PersistPanelPosition();
+            TouchActivation();
+        }
+
+        private static void SetBodyVisible(bool visible)
+        {
+            if(_statusRect!=null)_statusRect.gameObject.SetActive(visible);
+            if(_actionsRect!=null)_actionsRect.gameObject.SetActive(visible);
+            if(_resultHeader!=null)_resultHeader.gameObject.SetActive(visible);
+            if(_viewport!=null)_viewport.gameObject.SetActive(visible);
+            if(_footerRect!=null)
+            {
+                PartyToolsPanelLayout layout=PartyToolsPanelLayoutPolicy.Resolve(_panel==null?Height:_panel.sizeDelta.y);
+                _footerRect.gameObject.SetActive(visible&&layout.ShowFooter);
+            }
+        }
+
+        private static void UpdateCollapseChevron()
+        {
+            if(_collapseChevron==null)return;
+            for(int i=_collapseChevron.childCount-1;i>=0;i--)
+                if(_collapseChevron.GetChild(i).name=="Chevron")UnityEngine.Object.DestroyImmediate(_collapseChevron.GetChild(i).gameObject);
+            StandaloneLauncherVisual.AddVerticalChevron(_collapseChevron,!_collapsed);
+        }
+
         private static void HideAll(){if(_panelObject!=null)_panelObject.SetActive(false);if(_launcherObject!=null)_launcherObject.SetActive(false);}
         private static void TouchActivation() { _lastActivatedAt = Time.unscaledTime; }
         private static string CurrentSceneName(){try{return SceneManager.GetActiveScene().name??string.Empty;}catch{return string.Empty;}}

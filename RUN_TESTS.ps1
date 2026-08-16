@@ -94,8 +94,45 @@ if ($cameraSource -notmatch '\[HarmonyPatch\(typeof\(CameraController\),\s*"Usin
 foreach ($token in @('UIWindows','activeSelf','ModernControls','releaseMouse','GetAxis','DraggingUIElement')) {
     if ($cameraSource -notmatch [regex]::Escape($token)) { throw "Party Tools camera guard failed: native proof token missing: $token" }
 }
-if ($partyPluginSource -notmatch 'PluginVersion\s*=\s*"0\.1\.5"' -or
+if ($partyPluginSource -notmatch 'PluginVersion\s*=\s*"0\.1\.6"' -or
     $partyPluginSource -notmatch 'Party Tools " \+ PluginVersion \+ " loaded') {
     throw "Party Tools RC version guard failed."
 }
 Write-Host "Party Tools RC camera/gesture source guards: PASS" -ForegroundColor Green
+$launcherVisual = Get-Content (Join-Path $ScriptRoot "src\StandaloneLauncherVisual.cs") -Raw
+if ($launcherVisual -notmatch 'Width\s*=\s*154f' -or $launcherVisual -notmatch 'Height\s*=\s*32f' -or
+    $launcherVisual -notmatch 'GripWidth\s*=\s*20f' -or $launcherVisual -notmatch '"GripDot"' -or
+    $panelSource -notmatch 'StyleGrip\(grip\)' -or $panelSource -notmatch '"PARTY TOOLS"') {
+    throw "Party Tools Forgotten Roads launcher visual contract failed."
+}
+Write-Host "Party Tools Forgotten Roads launcher visual contract: PASS" -ForegroundColor Green
+
+# Canonical Forgotten Roads collapse/header chrome guards. The collapse icon must remain a drawn
+# retained-uGUI chevron and the existing robust drag/camera ownership must not be replaced.
+$panelSource = Get-Content (Join-Path $ScriptRoot "src\PartyToolsPanel.cs") -Raw
+$geometrySource = Get-Content (Join-Path $ScriptRoot "src\PartyToolsUiGeometry.cs") -Raw
+if ($panelSource.Contains([char]0x25B2) -or $panelSource.Contains([char]0x25BC) -or $panelSource.Contains([char]0x25BE) -or $panelSource.Contains([char]0x25B8)) {
+    throw "Party Tools collapse guard failed: Unicode arrow glyph dependency introduced."
+}
+if ($panelSource -notmatch 'AddVerticalChevron\(_collapseChevron,\s*true\)' -or
+    $panelSource -notmatch 'AddVerticalChevron\(_collapseChevron,\s*!_collapsed\)') {
+    throw "Party Tools collapse guard failed: retained graphic chevron is missing."
+}
+if ($panelSource -notmatch 'MakeRect\("Collapse",\s*_header,\s*28f,\s*24f,\s*4f,\s*4f\)' -or
+    $panelSource -notmatch 'MakeRect\("Header Drag Surface",\s*_header,\s*Width\s*-\s*72f,\s*PartyToolsUiGeometry\.HeaderHeight,\s*36f') {
+    throw "Party Tools header guard failed: arrow-left-of-title geometry regressed."
+}
+if ($panelSource -notmatch 'SetBodyVisible\(false\)' -or
+    $panelSource -notmatch 'CollapseFromExpanded' -or
+    $panelSource -notmatch 'ExpandFromCollapsed') {
+    throw "Party Tools collapse guard failed: header-only body/geometry transition missing."
+}
+if ($geometrySource -notmatch 'CollapsedHeight\s*=\s*HeaderHeight' -or
+    $geometrySource -notmatch 'HeaderHeight\s*=\s*32f') {
+    throw "Party Tools collapse guard failed: canonical collapsed/header height missing."
+}
+if ($panelSource -notmatch 'PartyToolsDragGuard' -or
+    $panelSource -notmatch 'drag\.Target\s*=\s*_panel') {
+    throw "Party Tools input guard failed: proven drag owner is no longer attached to the header."
+}
+Write-Host "Party Tools canonical collapse/header chrome: PASS" -ForegroundColor Green

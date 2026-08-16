@@ -14,7 +14,7 @@ namespace ErenshorPartyTools
     {
         internal const string PluginGuid = "forgetwhtuno.erenshor.partytools";
         internal const string PluginName = "Erenshor Party Tools";
-        internal const string PluginVersion = "0.1.5";
+        internal const string PluginVersion = "0.1.6";
         internal const int MaximumRollSides = 1000000;
 
         internal static ErenshorPartyToolsPlugin Instance;

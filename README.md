@@ -1,4 +1,4 @@
-# Erenshor Party Tools 0.1.5
+# Erenshor Party Tools 0.1.6
 
 Part of the **Forgotten Roads for Erenshor** mod collection.
 
@@ -40,7 +40,7 @@ Party Tools owns only its retained **PARTY TOOLS** launcher/panel and the Ready 
 
 ## Build
 
-This version requires **native Lunaris** — BepInEx is no longer required. `BUILD_AND_INSTALL.ps1` compiles the plugin and installs it to `<Erenshor>\plugins\ErenshorPartyTools.dll`; Lunaris manages enable/disable and config. The plugin identifier is `forgetwhtuno.erenshor.partytools`, version `0.1.5`.
+This version requires **native Lunaris** — BepInEx is no longer required. `BUILD_AND_INSTALL.ps1` compiles the plugin and installs it to `<Erenshor>\plugins\ErenshorPartyTools.dll`; Lunaris manages enable/disable and config. The plugin identifier is `forgetwhtuno.erenshor.partytools`, version `0.1.6`.
 
 **Status:** the native-Lunaris baseline previously compiled against the installed Lunaris/Assembly-CSharp. The retained-uGUI workstream changes the UI/source surface and therefore still requires a fresh current-assembly compile, deterministic test run, and live enable/disable/reload validation before release. A legacy BepInEx release remains available in this repository's Git history.
 
@@ -52,7 +52,7 @@ This version requires **native Lunaris** — BepInEx is no longer required. `BUI
 
 ## Development note
 
-This project has been developed heavily with AI-assisted coding tools. The goal has been to build features I wanted to use in Erenshor, with development guided through design, testing, playtesting, audits, and iteration against the game. Bug reports, code review, corrections, and contributions from experienced Erenshor modders are welcome.
+The goal is to build features for Erenshor, with development guided through design, testing, playtesting, audits, and iteration against the game. Bug reports, code review, corrections, and contributions from experienced Erenshor modders are welcome.
 
 This is an unofficial, community-made mod for Erenshor and is not affiliated with or endorsed by the game's developer.
 
