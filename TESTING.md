@@ -1,39 +1,26 @@
 # Erenshor Party Tools — 0.1.x Test Matrix
 
-The mod intentionally has only the ready check, social rolls, and friend-availability view in this phase. Do not add new systems to solve a test failure; fix the existing behavior first.
+The mod intentionally has only ready checks, social rolls, and a friend-availability view. Do not add new systems to solve a test failure; fix the existing behavior first.
 
-## Party Tools menu
+## Retained Party Tools panel
 
-1. Press `F7` or type `/tools`; confirm one draggable `PARTY TOOLS` menu opens.
-2. Click each action once. Confirm it runs the same behavior as `/ready`,
-   `/roll`, `/rollparty`, or `/ptwho`, and replaces the launcher rather than
-   stacking a second panel.
-3. With a raid active, click Ready Check and Party Roll; confirm each fails
-   with the existing short unavailable message and does not open a result panel.
-4. Press `Escape`, press F7 again, wait about 30 seconds, and zone while the
-   menu is open; confirm each closes it safely.
-5. Change `UI/OpenMenuKey` in the Lunaris config UI and confirm the new key
-   toggles the menu. Confirm `/tools` still opens it after changing the key.
-6. Confirm `/tools nope` shows one short usage message.
+1. Use the retained **Party Tools** launcher; confirm one draggable `PARTY TOOLS` panel opens. With Suite Hub installed, also confirm its **Open Panel** action opens the same single panel. `/tools` remains recovery access.
+2. Click **Ready Check**, **Roll 1-100**, **Party Roll 1-100**, and **Friends Online** once each. Confirm each uses the same behavior as its command and updates the existing panel instead of stacking another instance.
+3. Toggle **Launcher [ON/OFF]** and **Roll Summary [ON/OFF]** in the panel. Confirm the text always states the saved boolean explicitly. With Hub healthy, launcher OFF hides the launcher; with Hub absent/unusable or the module bridge unavailable, fallback visibility is forced on even though the saved preference remains OFF.
+4. With a raid active, click Ready Check and Party Roll; confirm each fails with the existing short unavailable message and does not fabricate raid behavior.
+5. Click the visible `X`, reopen, then zone while the panel is open. Confirm each close path is safe and exactly one retained panel exists after reopen.
+6. Escape ownership matrix: (a) with Hub genuinely absent, an open standalone Party Tools panel may close on its local Escape fallback; (b) with a well-formed Hub present but `quickClose=0`, Escape must **not** close Party Tools—use X and confirm vanilla Escape behaves normally; (c) with a future Hub advertising `quickCloseContract=1&quickClose=1` and this provider registered, confirm Hub closes Party Tools through `ui.state` + `closePanel` with no double-close/flicker.
+7. Verify the tall native Attack / Assist / Pull Target / Auto Pull / Guard party stack is unchanged by Party Tools. Party Tools owns only its own retained panel/launcher.
+7. Confirm `/tools` still opens the same retained panel and `/tools nope` produces one short usage message.
 
-## `/ptwho`
+## `/ptwho` — friend availability
 
-1. Use native `/friend` on two Sims for the current character, then run `/ptwho`.
-2. Confirm both appear without editing the Party Tools config.
-3. Confirm an online ungrouped friend is `AVAILABLE`, an online friend already
-   grouped is `BUSY - GROUPED`, and a native offline friend is `OFFLINE`.
-4. Remove one with native `/friend` or the Group Builder friend toggle and
-   confirm it disappears on the next `/ptwho` call.
-5. Switch character slots and confirm only friends whose native `FriendedBy`
-   matches the newly active slot appear.
-6. Confirm GM characters and Sims friended by another character are excluded,
-   matching Erenshor's own Group Builder Friends filter.
-7. Leave `FriendAvailability/Friends` blank and confirm the native roster still
-   works. Confirm fallback names are used only when the native manager/slot is
-   unavailable, never when the available native roster is simply empty.
-8. Change zones while the panel is open and confirm it closes. Repeat `/ptwho`
-   and confirm it replaces rather than stacks.
-9. Confirm `/ready`, `/roll`, and `/rollparty` retain their existing behavior.
+1. Run `/ptwho` and confirm it shows only the current character's native Friends roster, with `AVAILABLE`, `BUSY - GROUPED`, or `OFFLINE` for each friend. Nearby Sims who are not friends must not appear.
+2. Confirm verified local Sims are `L<level> <class> • LOCAL SIM` when the persistent tracking values are available. If COOP is installed and its component is observable on a party actor, confirm remote human/remote-owned Sim rows are clearly marked remote and are never treated as local readiness/roll participants. A remote human must not inherit class/level from the backing Sim tracking record. If no authoritative local avatar exists, `UNAVAILABLE` is acceptable and must not be guessed.
+3. Remove or add a party member while the `/ptwho` view remains open. Within the bounded refresh interval, confirm the row disappears/appears without rerunning the command and without a stale-reference exception.
+4. Zone while `/ptwho` is open; confirm the old panel closes. Reopen after the new world state is ready and confirm the native Friends roster is shown.
+5. Legacy `FriendAvailability/*` config values may still exist in an old config file, but changing them must not alter `/ptwho` output.
+6. Confirm `/ready`, `/roll`, and `/rollparty` retain their existing behavior after repeated `/ptwho` use.
 
 ## Build gate
 
@@ -53,7 +40,7 @@ Pass criteria:
 2. Type `/ready`.
 3. Confirm one small panel opens.
 4. Confirm `You` is shown as `READY` when alive and out of combat.
-5. Confirm the panel disappears after about nine seconds.
+5. Leave the ready check untouched for 10 seconds. Confirm the ready-check rows stop refreshing and the single retained panel returns to the neutral tools view without stacking or logging an error.
 
 ### Multiple party Sims
 
@@ -61,6 +48,7 @@ Pass criteria:
 2. Type `/ready`.
 3. Confirm each current local party Sim appears once.
 4. Confirm non-party Sims do not appear.
+5. Repeat `/ready` before the 10-second timeout and confirm it restarts/replaces the current check rather than creating a second panel.
 
 ### Dead Sim
 
@@ -77,16 +65,18 @@ Pass criteria:
 4. Confirm a local Sim reports `IN COMBAT` when its native group-combat signal or active aggro target establishes combat.
 5. Leave combat and confirm the open panel refreshes back to `READY` when no other blocker remains.
 
-### Sim leaves while window is open
+### Party mutates while window is open
 
 1. Open `/ready` with several party Sims.
-2. Remove one Sim from the party while the panel remains visible.
-3. Confirm the row disappears after the next refresh rather than throwing or retaining a stale object.
+2. Remove one Sim from the party while the panel remains visible; confirm the row disappears after the next refresh rather than throwing or retaining a stale object.
+3. Add another current local Sim; confirm the new row appears on the next refresh.
+4. Disband the party completely; confirm the next refresh contains only `You` and no stale rows.
+5. Repeat `/ready` immediately after regrouping and confirm the same retained panel restarts the bounded check with the new roster.
 
 ### Zone change while window is open
 
 1. Open `/ready`.
-2. Zone before the timeout expires.
+2. Zone while the retained panel is open.
 3. Confirm the old panel closes immediately and does not survive into the new zone.
 
 ### COOP conservative behavior
@@ -95,7 +85,7 @@ If COOP is installed and a remote human / remote-owned Sim is represented in the
 
 1. Run `/ready`.
 2. Confirm Party Tools does not fabricate a local Sim readiness state for the remote member.
-3. Confirm unresolved/remote state is `UNAVAILABLE` or absent only when the authoritative current-party list itself no longer contains that entry.
+3. Confirm an explicitly detected remote human is `REMOTE`; remote-owned Sims or otherwise unresolved state remain `UNAVAILABLE`. A remote human is never shown as READY/COMBAT/DEAD by Party Tools.
 
 ### Raid boundary
 
@@ -113,6 +103,7 @@ Test each command independently:
 /roll 1
 /roll 100
 /roll 1000
+/roll 1000000
 ```
 
 Pass criteria:
@@ -131,6 +122,7 @@ Invalid input:
 /roll 1000001
 /roll 999999999999999999999
 /roll 10 20
+/roll +1
 ```
 
 Pass criteria: one short usage line, no exception, no native command leakage from uncleared handled input.
@@ -144,18 +136,9 @@ Pass criteria: one short usage line, no exception, no native command leakage fro
 3. Confirm the panel contains `You` exactly once.
 4. Confirm each eligible local party Sim appears exactly once.
 5. Confirm each row has one result in 1-100.
-6. With `Roll Chatter/Enabled = true`, confirm chat shows one player opening,
-   one acknowledgment per eligible local Sim, one result per participant, and
-   exactly one winner reaction when the highest roll is not tied.
-7. Confirm friendly, competitive, blunt, and rival Sims use their corresponding
-   short reaction tone when those verified personality values are present, and
-   that Erenshor's native caps/lowercase/third-person/typo/emoticon quirks are
-   applied by `PersonalizeString`.
-8. Tie the highest value in a controlled/debug build and confirm no single
-   winner is claimed. Set `Roll Chatter/Enabled = false` and confirm the panel
-   still appears without the cosmetic chat sequence.
-9. Run `/rollparty` with no eligible local Sims and confirm only the player's
-   result is printed, with no fabricated acknowledgments or winner reaction.
+6. With `Roll Chatter/Enabled = true`, confirm exactly one concise local chat summary is emitted for the action, listing the generated results and either one untied winner or the tied high value. No Sim acknowledgment/dialogue is generated.
+7. Tie the highest value in a controlled/debug build and confirm no single winner is claimed. Set `Roll Chatter/Enabled = false` and confirm the panel still appears with no roll-summary chat line.
+8. Run `/rollparty` with no eligible local Sims and confirm the panel contains only the player's result and no fabricated Sim response.
 
 ### Alternate range
 
@@ -170,7 +153,7 @@ Confirm all values are in 1-1000 and the title shows the selected range.
 ### Party membership change
 
 1. Open a party-roll panel.
-2. Add or remove a party member before timeout.
+2. Add or remove a party member while that snapshot remains visible.
 3. Confirm the already-generated roll snapshot remains stable and no stale game object is dereferenced.
 4. Run `/rollparty` again and confirm the new snapshot uses current membership.
 
@@ -182,9 +165,17 @@ With remote COOP members present, confirm `/rollparty` rolls only for `You` plus
 
 - Run `/ready` repeatedly and confirm only one panel remains.
 - Run `/rollparty` repeatedly and confirm only one panel remains.
+- Run `/ptwho` repeatedly and confirm only one panel remains and friend availability rows keep refreshing.
 - Run `/ready`, then `/rollparty`, and confirm the latter replaces the former.
-- Wait for timeout and confirm the panel is fully gone.
+- Close with the visible `X` and confirm the panel hides cleanly; reopen and confirm exactly one retained instance.
 - Confirm normal movement/combat input is unaffected by the panel; Party Tools has no player-input interception patch.
-- Confirm `/ready` emits no per-member chat. Confirm `/rollparty` emits exactly
-  its configured bounded sequence and does not duplicate any result or reaction.
+- Confirm `/ready` emits no per-member chat. Confirm `/rollparty` emits at most one configured summary line and never duplicates or impersonates a Sim response.
 - Confirm unrelated slash commands continue to native Erenshor / other-mod handlers.
+
+
+## Lunaris lifecycle / reload
+
+- Disable/re-enable Party Tools repeatedly with and without COOP installed; confirm only one launcher/panel exists, optional COOP ownership detection still works, and no stale AssemblyLoad subscription is retained by an old plugin instance.
+- After each reload, run `/roll 100`, `/ready`, and `/ptwho`; confirm the cryptographic RNG is available again, the retained panel rebuilds once, and command handling remains single-shot.
+- Remove/reload COOP after Party Tools has loaded where the loader permits it; confirm the optional type cache invalidates on assembly load and unresolved actors fail closed rather than being reclassified from stale cached types.
+- Shut down/unload while the panel is being dragged; confirm drag ownership, retained GameObjects, Aura handlers, Harmony patches, COOP reflection cache/subscription, and RNG provider are all released.

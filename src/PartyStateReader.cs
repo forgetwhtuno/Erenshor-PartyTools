@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 
 namespace ErenshorPartyTools
@@ -12,39 +11,36 @@ namespace ErenshorPartyTools
             List<ReadyRow> rows = new List<ReadyRow>();
             rows.Add(new ReadyRow("You", ReadPlayerReadyState()));
 
-            SimPlayerTracking[] members = null;
-            try { members = GameData.GroupMembers; }
-            catch { }
+            SimPlayerTracking[] members = ReadGroupMembers();
             if (members == null || members.Length == 0) return rows;
 
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
             for (int i = 0; i < members.Length; i++)
             {
                 SimPlayerTracking tracking = members[i];
-                if (tracking == null || string.IsNullOrWhiteSpace(tracking.SimName)) continue;
-                string partyName = tracking.SimName.Trim();
-                if (!seen.Add(partyName)) continue;
+                string partyName = ReadTrackingName(tracking);
+                if (partyName.Length == 0 || !seen.Add(partyName)) continue;
 
-                SimPlayer sim = tracking.MyAvatar;
+                SimPlayer sim = SafeAvatar(tracking);
                 if (sim == null)
                 {
-                    // This is also the safe representation for a COOP human that has a
-                    // party tracking entry but no authoritative local SimPlayer state.
                     rows.Add(new ReadyRow(partyName, ReadyState.Unavailable));
                     continue;
                 }
 
-                if (CoopCompatibility.IsRemoteCoopHuman(sim) || CoopCompatibility.IsRemoteCoopSim(sim))
+                if (CoopCompatibility.IsRemoteCoopHuman(sim))
+                {
+                    // We can authoritatively identify COOP ownership from its explicit component,
+                    // but Party Tools cannot authoritatively answer for that remote human.
+                    rows.Add(new ReadyRow(partyName, ReadyState.RemotePlayer));
+                    continue;
+                }
+                if (CoopCompatibility.IsRemoteCoopSim(sim))
                 {
                     rows.Add(new ReadyRow(partyName, ReadyState.Unavailable));
                     continue;
                 }
 
-                // The tracking entry is authoritative for presence (GameData.GroupMembers).
-                // If the local Sim-side flags can't confirm liveness/grouping (e.g. during
-                // zoning or a group-slot reshuffle), still show the row, just as UNAVAILABLE
-                // rather than silently dropping a real party member.
                 if (!IsCurrentPartySim(sim))
                 {
                     rows.Add(new ReadyRow(partyName, ReadyState.Unavailable));
@@ -53,70 +49,43 @@ namespace ErenshorPartyTools
 
                 rows.Add(new ReadyRow(SafeDisplayName(sim, partyName), ReadSimReadyState(sim)));
             }
-
             return rows;
         }
 
-        internal static bool IsRaidActive()
+        internal static List<PanelRow> BuildPartyWhoRows()
         {
-            try { return GameData.RaidActive; }
-            catch { return false; }
-        }
+            List<PanelRow> rows = new List<PanelRow>();
+            rows.Add(new PanelRow(ReadPlayerName(),
+                PartySnapshotPolicy.Describe(PartyWhoKind.LocalPlayer, ReadPlayerLevel(), string.Empty), false));
 
-        internal static List<PartyRollParticipant> GetLocalRollParticipants()
-        {
-            List<PartyRollParticipant> result = new List<PartyRollParticipant>();
-            result.Add(new PartyRollParticipant(ReadPlayerName(), true));
-
-            SimPlayerTracking[] members = null;
-            try { members = GameData.GroupMembers; }
-            catch { }
-            if (members == null || members.Length == 0) return result;
+            SimPlayerTracking[] members = ReadGroupMembers();
+            if (members == null || members.Length == 0) return rows;
 
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
             for (int i = 0; i < members.Length; i++)
             {
                 SimPlayerTracking tracking = members[i];
-                if (tracking == null || string.IsNullOrWhiteSpace(tracking.SimName)) continue;
-                string partyName = tracking.SimName.Trim();
-                if (!seen.Add(partyName)) continue;
+                string partyName = ReadTrackingName(tracking);
+                if (partyName.Length == 0 || !seen.Add(partyName)) continue;
 
-                SimPlayer sim = tracking.MyAvatar;
-                if (!IsLocallyRollEligible(sim)) continue;
-                result.Add(new PartyRollParticipant(SafeDisplayName(sim, partyName), false));
-            }
-
-            return result;
-        }
-
-        internal static List<PanelRow> BuildFriendAvailabilityRows(
-            List<string> configuredFriends,
-            string persistentSeed,
-            long sessionBlock,
-            bool enabled)
-        {
-            List<PanelRow> rows = new List<PanelRow>();
-            if (configuredFriends == null) return rows;
-
-            for (int i = 0; i < configuredFriends.Count; i++)
-            {
-                string name = configuredFriends[i];
-                bool excludedRemoteOrUnknown;
-                bool nativeBusy = TryReadNativeBusy(name, out excludedRemoteOrUnknown);
-                if (excludedRemoteOrUnknown) continue;
-
-                FriendAvailabilityState simulated;
-                if (!FriendAvailability.TryGetSimulatedState(name, persistentSeed, sessionBlock, enabled, out simulated))
-                    continue;
-
-                FriendAvailabilityState state = FriendAvailability.ApplyVerifiedBusy(simulated, nativeBusy);
-                string value = nativeBusy ? "BUSY - GROUPED" : FriendAvailabilityText(state);
-                rows.Add(new PanelRow(name, value, state != FriendAvailabilityState.Available));
+                SimPlayer sim = SafeAvatar(tracking);
+                bool hasAvatar = sim != null && IsAvailableSim(sim);
+                bool remoteHuman = hasAvatar && CoopCompatibility.IsRemoteCoopHuman(sim);
+                bool remoteSim = hasAvatar && CoopCompatibility.IsRemoteCoopSim(sim);
+                bool currentParty = hasAvatar && !remoteHuman && !remoteSim && IsCurrentPartySim(sim);
+                PartyWhoKind kind = PartySnapshotPolicy.Classify(false, hasAvatar, remoteHuman, remoteSim, currentParty);
+                string display = hasAvatar ? SafeDisplayName(sim, partyName) : partyName;
+                int level = kind == PartyWhoKind.LocalSim ? ReadTrackingLevel(tracking) : 0;
+                string className = kind == PartyWhoKind.LocalSim ? ReadTrackingClass(tracking) : string.Empty;
+                rows.Add(new PanelRow(display, PartySnapshotPolicy.Describe(kind, level, className),
+                    kind != PartyWhoKind.LocalSim));
             }
             return rows;
         }
 
+        // This mirrors Group Builder's native Friends filter.  The roster belongs to the
+        // current character, not to the active party, so it is the authoritative source for
+        // finding Sims who may be available to group with.
         internal static List<PanelRow> BuildNativeFriendAvailabilityRows(out bool rosterAvailable)
         {
             rosterAvailable = false;
@@ -135,16 +104,13 @@ namespace ErenshorPartyTools
                 for (int i = 0; i < sims.Count; i++)
                 {
                     SimPlayerTracking tracking = sims[i];
-                    if (tracking == null || string.IsNullOrWhiteSpace(tracking.SimName)) continue;
+                    string name = ReadTrackingName(tracking);
+                    if (name.Length == 0 || !seen.Add(name)) continue;
                     if (!NativeFriendRosterPolicy.IsCurrentCharacterFriend(
                         tracking.FriendedBy, currentSlot, tracking.IsGMCharacter)) continue;
 
-                    string name = tracking.SimName.Trim();
-                    if (!seen.Add(name)) continue;
                     FriendAvailabilityState state = NativeFriendRosterPolicy.Availability(tracking.online, tracking.Grouped);
-                    string value = state == FriendAvailabilityState.Busy
-                        ? "BUSY - GROUPED"
-                        : FriendAvailabilityText(state);
+                    string value = state == FriendAvailabilityState.Busy ? "BUSY - GROUPED" : FriendAvailabilityText(state);
                     rows.Add(new PanelRow(name, value, state != FriendAvailabilityState.Available));
                 }
             }
@@ -156,54 +122,54 @@ namespace ErenshorPartyTools
             return rows;
         }
 
+        internal static bool IsRaidActive()
+        {
+            try { return GameData.RaidActive; }
+            catch { return false; }
+        }
+
+        internal static List<PartyRollParticipant> GetLocalRollParticipants()
+        {
+            List<PartyRollParticipant> result = new List<PartyRollParticipant>();
+            result.Add(new PartyRollParticipant(ReadPlayerName(), true));
+
+            SimPlayerTracking[] members = ReadGroupMembers();
+            if (members == null || members.Length == 0) return result;
+
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < members.Length; i++)
+            {
+                SimPlayerTracking tracking = members[i];
+                string partyName = ReadTrackingName(tracking);
+                if (partyName.Length == 0 || !seen.Add(partyName)) continue;
+                SimPlayer sim = SafeAvatar(tracking);
+                if (!IsLocallyRollEligible(sim)) continue;
+                result.Add(new PartyRollParticipant(SafeDisplayName(sim, partyName), false));
+            }
+            return result;
+        }
+
         internal static string ReadPlayerName()
         {
             try
             {
                 Character player = GameData.PlayerControl == null ? null : GameData.PlayerControl.Myself;
                 if (player != null && player.MyStats != null && !string.IsNullOrWhiteSpace(player.MyStats.MyName))
-                    return player.MyStats.MyName.Trim();
+                    return CleanDisplayName(player.MyStats.MyName, "You");
             }
             catch { }
             return "You";
         }
 
-        internal static PartyRollTone ReadPartyRollTone(string simName)
+        internal static int ReadPlayerLevel()
         {
-            SimPlayer sim = FindLocalPartySim(simName);
-            if (sim == null) return PartyRollTone.Neutral;
-
-            if (ReadBoolMember(sim, "Rival", false)) return PartyRollTone.Rival;
-            object personality = ReadMember(sim, "PersonalityType");
-            if (personality == null) personality = ReadMember(sim, "Personality");
-            int code;
-            try { code = personality == null ? -1 : Convert.ToInt32(personality); }
-            catch { code = -1; }
-            switch (code)
-            {
-                case 0:
-                case 1: return PartyRollTone.Friendly;
-                case 2: return PartyRollTone.Competitive;
-                case 3: return PartyRollTone.Blunt;
-                default: return PartyRollTone.Neutral;
-            }
-        }
-
-        internal static string ApplyVanillaTypingStyle(string simName, string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return text;
-            SimPlayer sim = FindLocalPartySim(simName);
-            if (sim == null) return text;
             try
             {
-                if (GameData.SimMngr != null)
-                {
-                    string styled = GameData.SimMngr.PersonalizeString(text, sim);
-                    if (!string.IsNullOrWhiteSpace(styled)) return styled;
-                }
+                Character player = GameData.PlayerControl == null ? null : GameData.PlayerControl.Myself;
+                if (player != null && player.MyStats != null && player.MyStats.Level > 0) return player.MyStats.Level;
             }
             catch { }
-            return text;
+            return 0;
         }
 
         private static ReadyState ReadPlayerReadyState()
@@ -211,35 +177,53 @@ namespace ErenshorPartyTools
             Character player = null;
             try { player = GameData.PlayerControl == null ? null : GameData.PlayerControl.Myself; }
             catch { }
-            if (player == null) return ReadyState.Unavailable;
-            if (!IsAvailableCharacter(player)) return ReadyState.Unavailable;
-            try { if (!player.Alive) return ReadyState.Dead; }
-            catch { return ReadyState.Unavailable; }
-
-            try { if (GameData.InCombat) return ReadyState.InCombat; }
+            bool available = IsAvailableCharacter(player);
+            bool aliveKnown = false;
+            bool alive = false;
+            if (available)
+            {
+                try { alive = player.Alive; aliveKnown = true; }
+                catch { }
+            }
+            bool combatKnown = false;
+            bool inCombat = false;
+            try { inCombat = GameData.InCombat; combatKnown = true; }
             catch { }
-            return ReadyState.Ready;
+            return ReadyStatePolicy.Classify(available, false, aliveKnown, alive, combatKnown, inCombat);
         }
 
         private static ReadyState ReadSimReadyState(SimPlayer sim)
         {
-            if (sim == null || sim.MyStats == null || sim.MyStats.Myself == null) return ReadyState.Unavailable;
-            Character character = sim.MyStats.Myself;
-            if (!IsAvailableSim(sim) || !IsAvailableCharacter(character)) return ReadyState.Unavailable;
-            try { if (!character.Alive) return ReadyState.Dead; }
-            catch { return ReadyState.Unavailable; }
-
-            try { if (sim.IsSimGroupInCombat()) return ReadyState.InCombat; }
+            Character character = null;
+            try { character = sim == null || sim.MyStats == null ? null : sim.MyStats.Myself; }
             catch { }
-
-            try
+            bool available = IsAvailableSim(sim) && IsAvailableCharacter(character);
+            bool aliveKnown = false;
+            bool alive = false;
+            if (available)
             {
-                NPC npc = character.MyNPC;
-                if (npc != null && npc.CurrentAggroTarget != null) return ReadyState.InCombat;
+                try { alive = character.Alive; aliveKnown = true; }
+                catch { }
             }
-            catch { }
 
-            return ReadyState.Ready;
+            bool combatKnown = false;
+            bool inCombat = false;
+            if (available)
+            {
+                try { inCombat = sim.IsSimGroupInCombat(); combatKnown = true; }
+                catch { }
+                try
+                {
+                    NPC npc = character.MyNPC;
+                    if (npc != null)
+                    {
+                        combatKnown = true;
+                        if (npc.CurrentAggroTarget != null) inCombat = true;
+                    }
+                }
+                catch { }
+            }
+            return ReadyStatePolicy.Classify(available, false, aliveKnown, alive, combatKnown, inCombat);
         }
 
         private static bool IsLocallyRollEligible(SimPlayer sim)
@@ -249,78 +233,34 @@ namespace ErenshorPartyTools
             return IsCurrentPartySim(sim);
         }
 
-        private static SimPlayer FindLocalPartySim(string name)
+        private static SimPlayerTracking[] ReadGroupMembers()
         {
-            if (string.IsNullOrWhiteSpace(name)) return null;
-            SimPlayerTracking[] members = null;
-            try { members = GameData.GroupMembers; }
-            catch { }
-            if (members == null) return null;
-
-            for (int i = 0; i < members.Length; i++)
-            {
-                SimPlayerTracking tracking = members[i];
-                if (tracking == null) continue;
-                SimPlayer sim = tracking.MyAvatar;
-                if (!IsLocallyRollEligible(sim)) continue;
-                string display = SafeDisplayName(sim, tracking.SimName);
-                if (string.Equals(display, name, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(tracking.SimName, name, StringComparison.OrdinalIgnoreCase)) return sim;
-            }
-            return null;
+            try { return GameData.GroupMembers; }
+            catch { return null; }
         }
 
-        private static object ReadMember(object target, string name)
+        private static SimPlayer SafeAvatar(SimPlayerTracking tracking)
         {
-            if (target == null || string.IsNullOrWhiteSpace(name)) return null;
-            Type type = target.GetType();
-            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-            try
-            {
-                FieldInfo field = type.GetField(name, flags);
-                if (field != null) return field.GetValue(target);
-                PropertyInfo property = type.GetProperty(name, flags);
-                if (property != null && property.GetIndexParameters().Length == 0)
-                    return property.GetValue(target, null);
-            }
-            catch { }
-            return null;
+            try { return tracking == null ? null : tracking.MyAvatar; }
+            catch { return null; }
         }
 
-        private static bool ReadBoolMember(object target, string name, bool fallback)
+        private static string ReadTrackingName(SimPlayerTracking tracking)
         {
-            object value = ReadMember(target, name);
-            if (value == null) return fallback;
-            try { return Convert.ToBoolean(value); }
-            catch { return fallback; }
+            try { return tracking == null ? string.Empty : CleanDisplayName(tracking.SimName, string.Empty); }
+            catch { return string.Empty; }
         }
 
-        private static bool TryReadNativeBusy(string name, out bool excludedRemoteOrUnknown)
+        private static int ReadTrackingLevel(SimPlayerTracking tracking)
         {
-            excludedRemoteOrUnknown = false;
-            if (string.IsNullOrWhiteSpace(name)) return false;
+            try { return tracking != null && tracking.Level > 0 ? tracking.Level : 0; }
+            catch { return 0; }
+        }
 
-            SimPlayerTracking[] members = null;
-            try { members = GameData.GroupMembers; }
-            catch { }
-            if (members == null) return false;
-
-            for (int i = 0; i < members.Length; i++)
-            {
-                SimPlayerTracking tracking = members[i];
-                if (tracking == null || !string.Equals(tracking.SimName, name, StringComparison.OrdinalIgnoreCase)) continue;
-                SimPlayer sim = tracking.MyAvatar;
-                if (sim == null || CoopCompatibility.IsRemoteCoopHuman(sim) || CoopCompatibility.IsRemoteCoopSim(sim))
-                {
-                    excludedRemoteOrUnknown = true;
-                    return false;
-                }
-
-                // A verified current subgroup is real native activity. Do not replace it
-                // with a simulated AVAILABLE state or invent an activity beyond GROUPED.
-                return IsCurrentPartySim(sim);
-            }
-            return false;
+        private static string ReadTrackingClass(SimPlayerTracking tracking)
+        {
+            try { return tracking == null ? string.Empty : PartySnapshotPolicy.CleanClassName(tracking.ClassName); }
+            catch { return string.Empty; }
         }
 
         private static string FriendAvailabilityText(FriendAvailabilityState state)
@@ -355,17 +295,14 @@ namespace ErenshorPartyTools
 
         private static bool IsAvailableCharacter(Character character)
         {
-            try
-            {
-                return character != null && character.gameObject != null && character.gameObject.activeInHierarchy;
-            }
+            try { return character != null && character.gameObject != null && character.gameObject.activeInHierarchy; }
             catch { return false; }
         }
 
         private static string SafeDisplayName(SimPlayer sim, string fallback)
         {
             string name = ReadSimName(sim);
-            return string.IsNullOrWhiteSpace(name) ? fallback : name;
+            return string.IsNullOrWhiteSpace(name) ? CleanDisplayName(fallback, "Party member") : name;
         }
 
         private static string ReadSimName(SimPlayer sim)
@@ -375,20 +312,24 @@ namespace ErenshorPartyTools
             {
                 Character character = sim.MyStats == null ? null : sim.MyStats.Myself;
                 NPC npc = character == null ? null : character.MyNPC;
-                if (npc != null && !string.IsNullOrWhiteSpace(npc.NPCName)) return npc.NPCName.Trim();
+                if (npc != null && !string.IsNullOrWhiteSpace(npc.NPCName)) return CleanDisplayName(npc.NPCName, string.Empty);
             }
             catch { }
             try
             {
                 if (sim.MyStats != null && !string.IsNullOrWhiteSpace(sim.MyStats.MyName))
-                    return sim.MyStats.MyName.Trim();
+                    return CleanDisplayName(sim.MyStats.MyName, string.Empty);
             }
             catch { }
-            try
-            {
-                return sim.gameObject == null ? string.Empty : sim.gameObject.name;
-            }
-            catch { return string.Empty; }
+            return string.Empty;
+        }
+
+        private static string CleanDisplayName(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return fallback;
+            string clean = value.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('\0', ' ').Trim();
+            if (clean.Length == 0) return fallback;
+            return clean.Length <= 48 ? clean : clean.Substring(0, 48);
         }
     }
 }

@@ -1,39 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 
 namespace ErenshorPartyTools
 {
-    // Cosmetic, local chat only. These lines never enter the party-command input path,
-    // decide loot, or cause a Sim to take an action.
+    // Optional cosmetic chat output. One party-roll action emits at most one summary line;
+    // Party Tools never impersonates Sim dialogue or routes generated text through party commands.
     internal static class PartyRollSocial
     {
-        internal static string Opening(string playerName, int sides)
-        {
-            return SafeName(playerName, "You") + " tells the party: Alright everyone, roll 1-" +
-                sides.ToString(CultureInfo.InvariantCulture) + "!";
-        }
-
-        internal static string Agreement(PartyRollTone tone)
-        {
-            switch (tone)
-            {
-                case PartyRollTone.Friendly: return "Sure, let's do it!";
-                case PartyRollTone.Competitive: return "I'm in. Let's see who gets it.";
-                case PartyRollTone.Blunt: return "Fine. Rolling.";
-                case PartyRollTone.Rival: return "Try to beat this.";
-                default: return "Sure, rolling.";
-            }
-        }
-
-        internal static string Result(PartyRollResult result, int sides)
-        {
-            string name = result == null || result.Participant == null ? "A party member" : SafeName(result.Participant.Name, "A party member");
-            int value = result == null ? 0 : result.Value;
-            return name + " rolls " + value.ToString(CultureInfo.InvariantCulture) + " (1-" +
-                sides.ToString(CultureInfo.InvariantCulture) + ").";
-        }
-
         internal static PartyRollResult SingleWinner(IList<PartyRollResult> results)
         {
             if (results == null || results.Count == 0) return null;
@@ -56,21 +31,43 @@ namespace ErenshorPartyTools
             return tied ? null : winner;
         }
 
-        internal static string Winner(PartyRollTone tone)
+        internal static string Summary(int sides, IList<PartyRollResult> results)
         {
-            switch (tone)
+            if (results == null || results.Count == 0) return string.Empty;
+            StringBuilder builder = new StringBuilder();
+            builder.Append("Party roll 1-").Append(sides.ToString(CultureInfo.InvariantCulture)).Append(": ");
+            int written = 0;
+            for (int i = 0; i < results.Count; i++)
             {
-                case PartyRollTone.Friendly: return "Yay, I won!";
-                case PartyRollTone.Competitive: return "Knew I'd take that one.";
-                case PartyRollTone.Blunt: return "I won. Nice.";
-                case PartyRollTone.Rival: return "Of course I won.";
-                default: return "Nice, I won that one.";
+                PartyRollResult result = results[i];
+                if (result == null || result.Participant == null) continue;
+                if (written > 0) builder.Append(", ");
+                builder.Append(SafeName(result.Participant.Name)).Append(' ')
+                       .Append(result.Value.ToString(CultureInfo.InvariantCulture));
+                written++;
             }
+            if (written == 0) return string.Empty;
+
+            PartyRollResult winner = SingleWinner(results);
+            if (winner == null)
+            {
+                int best = int.MinValue;
+                for (int i = 0; i < results.Count; i++)
+                    if (results[i] != null && results[i].Participant != null && results[i].Value > best) best = results[i].Value;
+                builder.Append(". Tie at ").Append(best.ToString(CultureInfo.InvariantCulture)).Append('.');
+            }
+            else
+            {
+                builder.Append(". Winner: ").Append(SafeName(winner.Participant.Name)).Append('.');
+            }
+            return builder.ToString();
         }
 
-        private static string SafeName(string value, string fallback)
+        private static string SafeName(string value)
         {
-            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+            if (string.IsNullOrWhiteSpace(value)) return "Party member";
+            string clean = value.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('\0', ' ').Trim();
+            return clean.Length <= 48 ? clean : clean.Substring(0, 48);
         }
     }
 }

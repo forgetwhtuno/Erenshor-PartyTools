@@ -21,6 +21,7 @@ internal static class PanelPositioningTests
             DragCommitPersistsAndRehydrates();
             FriendAvailabilityTests.Run();
             PartyRollSocialTests.Run();
+            RollerTests.Run();
             UiAndCommandPolicyTests.Run();
             Console.WriteLine("PanelPositioningTests: PASS");
             return 0;

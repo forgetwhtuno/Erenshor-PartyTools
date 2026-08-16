@@ -14,12 +14,14 @@ namespace ErenshorPartyTools
     {
         internal const string PluginGuid = "forgetwhtuno.erenshor.partytools";
         internal const string PluginName = "Erenshor Party Tools";
-        internal const string PluginVersion = "0.1.2";
+        internal const string PluginVersion = "0.1.5";
         internal const int MaximumRollSides = 1000000;
 
         internal static ErenshorPartyToolsPlugin Instance;
+        internal static bool IsSuiteQuickCloseProviderRegistered { get { return Instance != null && Instance._auraProvider != null && Instance._auraProvider.Registered; } }
 
         private Harmony _harmony;
+        private bool _ownsInstance;
         private bool _pendingExternalOpen;
         private bool _pendingExternalClose;
         private int _pendingControlAction;
@@ -39,14 +41,24 @@ namespace ErenshorPartyTools
 
         private void Awake()
         {
+            if (Instance != null && Instance != this)
+            {
+                try { Logging.LogWarning("Erenshor Party Tools duplicate plugin instance ignored."); } catch { }
+                enabled = false;
+                return;
+            }
             Instance = this;
+            _ownsInstance = true;
+
+            CoopCompatibility.Initialize();
+            Roller.Initialize();
 
             _settings = new PartyToolsSettings();
             Config.Register(ref _settings);
             InitializeConfigEntries();
 
             PartyToolsPanel.ConfigurePosition(_panelNormalizedX.Value, _panelNormalizedY.Value, _launcherNormalizedX.Value, _launcherNormalizedY.Value, PersistPanelPosition, PersistLauncherPosition);
-            EnsureFriendAvailabilitySeed();
+            SuiteUiPolicy.InitializeHubPresence(this);
 
             _harmony = new Harmony(PluginGuid);
             try
@@ -55,14 +67,14 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logging.LogError("Erenshor Party Tools failed to patch: " + ex);
+                Logging.LogError("Erenshor Party Tools failed to patch (" + ex.GetType().Name + ").");
                 return;
             }
 
             try { _auraProvider = new PartyToolsSuiteAuraProvider(this); }
-            catch (Exception ex) { Logging.LogError("Erenshor Party Tools Suite Aura provider failed to register: " + ex); }
+            catch (Exception ex) { Logging.LogError("Erenshor Party Tools Suite Aura provider failed to register (" + ex.GetType().Name + ")."); }
 
-            Logging.LogInfo("Erenshor Party Tools loaded. Use the retained launcher/Hub panel; compatibility commands: /tools, /ready, /roll [max], /rollparty [max], /ptwho.");
+            Logging.LogInfo("Erenshor Party Tools " + PluginVersion + " loaded. Use the retained launcher/Hub panel; compatibility commands: /tools, /ready, /roll [max], /rollparty [max], /ptwho.");
         }
 
         private void InitializeConfigEntries()
@@ -93,7 +105,7 @@ namespace ErenshorPartyTools
                     if (action == 1) ShowReadyCheck();
                     else if (action == 2) ShowLocalRoll(sides, true);
                     else if (action == 3) ShowPartyRoll(sides);
-                    else if (action == 4) ShowFriendAvailability();
+                    else if (action == 4) ShowPartyWho();
                 }
                 if (!ready) { _pendingControlAction = 0; _pendingControlSides = 0; PartyToolsPanel.Close(); }
                 bool bridge = _auraProvider != null && _auraProvider.Registered;
@@ -102,24 +114,27 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logging.LogError("Party Tools update/UI failed: " + ex);
+                Logging.LogError("Party Tools update/UI failed (" + ex.GetType().Name + ").");
                 PartyToolsPanel.Close(); PartyToolsPanel.ReleaseDrag();
             }
         }
 
         private void OnDestroy()
         {
+            if (!_ownsInstance) return;
+            _ownsInstance = false;
             // Lunaris can unload/reload plugins while Erenshor is running. Release everything
             // this plugin owns before clearing the singleton.
             try { if (_auraProvider != null) _auraProvider.Unregister(); } catch { }
             _auraProvider = null;
             try { PartyToolsPanel.Dispose(); } catch { }
             try { CoopCompatibility.Shutdown(); } catch { }
+            try { Roller.Shutdown(); } catch { }
             try { if (_harmony != null) _harmony.UnpatchSelf(); } catch { }
             _harmony = null;
             _pendingExternalOpen = _pendingExternalClose = false; _pendingControlAction = _pendingControlSides = 0;
             SuiteUiPolicy.Reset();
-            Instance = null;
+            if (Instance == this) Instance = null;
         }
 
         internal void RequestOpenToolsPanel() { _pendingExternalOpen = true; }
@@ -127,7 +142,7 @@ namespace ErenshorPartyTools
         internal void ControlReadyCheck() { _pendingControlAction = 1; _pendingControlSides = 0; }
         internal void ControlRoll(int sides) { _pendingControlAction = 2; _pendingControlSides = sides; }
         internal void ControlPartyRoll(int sides) { _pendingControlAction = 3; _pendingControlSides = sides; }
-        internal void ControlFriendAvailability() { _pendingControlAction = 4; _pendingControlSides = 0; }
+        internal void ControlPartyWho() { _pendingControlAction = 4; _pendingControlSides = 0; }
 
         private void PersistPanelPosition(float x, float y)
         {
@@ -151,17 +166,16 @@ namespace ErenshorPartyTools
 
         internal void Chat(string message, string color)
         {
+            // Use exactly one native append attempt per Party Tools action. Falling back to a
+            // second overload after an exception can duplicate a line if the first overload
+            // appended successfully and then failed later in the native presentation path.
             try { UpdateSocialLog.LogAdd(message, color); }
-            catch
-            {
-                try { UpdateSocialLog.LogAdd(message); }
-                catch { }
-            }
+            catch { }
         }
 
         internal void LogPatchError(Exception ex)
         {
-            try { Logging.LogError("Party Tools command patch failed: " + ex); }
+            try { Logging.LogError("Party Tools command patch failed (" + ex.GetType().Name + ")."); }
             catch { }
         }
 
@@ -209,7 +223,7 @@ namespace ErenshorPartyTools
                     return true;
                 }
 
-                ShowFriendAvailability();
+                ShowPartyWho();
                 return true;
             }
 
@@ -249,7 +263,7 @@ namespace ErenshorPartyTools
                 case PartyToolsAction.ReadyCheck: ShowReadyCheck(); break;
                 case PartyToolsAction.Roll: ShowLocalRoll(100, true); break;
                 case PartyToolsAction.PartyRoll: ShowPartyRoll(100); break;
-                case PartyToolsAction.FriendAvailability: ShowFriendAvailability(); break;
+                case PartyToolsAction.PartyWho: ShowPartyWho(); break;
             }
         }
 
@@ -261,7 +275,7 @@ namespace ErenshorPartyTools
                 return;
             }
             try { PartyToolsPanel.ShowReadyCheck(); }
-            catch (Exception ex) { Logging.LogError("Party Tools ready-check UI failed: " + ex); }
+            catch (Exception ex) { Logging.LogError("Party Tools ready-check UI failed (" + ex.GetType().Name + ")."); }
         }
 
         private void ShowLocalRoll(int sides, bool showPanel)
@@ -295,77 +309,34 @@ namespace ErenshorPartyTools
                 if (_rollChatterEnabled != null && _rollChatterEnabled.Value)
                     ShowPartyRollChatter(sides, results);
             }
-            catch (Exception ex) { Logging.LogError("Party Tools /rollparty handling failed: " + ex); }
+            catch (Exception ex) { Logging.LogError("Party Tools /rollparty handling failed (" + ex.GetType().Name + ")."); }
         }
 
         private void ShowPartyRollChatter(int sides, List<PartyRollResult> results)
         {
-            if (results == null || results.Count == 0) return;
-            if (results.Count == 1)
-            {
-                Chat(PartyRollSocial.Result(results[0], sides), "lightblue");
-                return;
-            }
-            Chat(PartyRollSocial.Opening(PartyStateReader.ReadPlayerName(), sides), "lightblue");
-            for (int i = 0; i < results.Count; i++)
-            {
-                PartyRollResult result = results[i];
-                if (result == null || result.Participant == null || result.Participant.IsPlayer) continue;
-                string name = result.Participant.Name;
-                PartyRollTone tone = PartyStateReader.ReadPartyRollTone(name);
-                string agreement = PartyStateReader.ApplyVanillaTypingStyle(name, PartyRollSocial.Agreement(tone));
-                Chat(name + " tells the party: " + agreement, "lightblue");
-            }
-            for (int i = 0; i < results.Count; i++)
-                Chat(PartyRollSocial.Result(results[i], sides), "lightblue");
-
-            PartyRollResult winner = PartyRollSocial.SingleWinner(results);
-            if (winner != null && winner.Participant != null)
-            {
-                string name = winner.Participant.Name;
-                PartyRollTone tone = winner.Participant.IsPlayer ? PartyRollTone.Neutral : PartyStateReader.ReadPartyRollTone(name);
-                string reaction = PartyRollSocial.Winner(tone);
-                if (!winner.Participant.IsPlayer) reaction = PartyStateReader.ApplyVanillaTypingStyle(name, reaction);
-                Chat(name + " tells the party: " + reaction, "lightblue");
-            }
+            string summary = PartyRollSocial.Summary(sides, results);
+            if (!string.IsNullOrWhiteSpace(summary)) Chat(summary, "lightblue");
         }
 
-        private void ShowFriendAvailability()
+        private void ShowPartyWho()
         {
             try
             {
-                bool nativeRosterAvailable;
-                List<PanelRow> rows = PartyStateReader.BuildNativeFriendAvailabilityRows(out nativeRosterAvailable);
-                if (nativeRosterAvailable)
+                bool rosterAvailable;
+                List<PanelRow> rows = PartyStateReader.BuildNativeFriendAvailabilityRows(out rosterAvailable);
+                if (!rosterAvailable)
                 {
-                    Logging.LogInfo("/ptwho read " + rows.Count.ToString(CultureInfo.InvariantCulture) +
-                        " friend(s) from Erenshor's native roster for the current character.");
-                    if (rows.Count == 0)
-                    {
-                        Chat("[Party Tools] Erenshor's Friends filter is empty for this character.", "yellow");
-                        return;
-                    }
-                    PartyToolsPanel.ShowFriendAvailability(rows);
+                    Chat("[Party Tools] Friend roster is not ready yet.", "yellow");
                     return;
                 }
-
-                List<string> friends = FriendAvailability.ParseConfiguredFriends(_friendAvailabilityFriends.Value);
-                if (friends.Count == 0)
-                {
-                    Chat("[Party Tools] Erenshor's native friend roster is not ready, and no compatibility fallback names are configured.", "yellow");
-                    return;
-                }
-                long sessionBlock = FriendAvailability.GetSessionBlock(DateTime.UtcNow, _friendAvailabilitySessionHours.Value);
-                rows = PartyStateReader.BuildFriendAvailabilityRows(
-                    friends, _friendAvailabilitySeed.Value, sessionBlock, _friendAvailabilityEnabled.Value);
                 if (rows.Count == 0)
                 {
-                    Chat("[Party Tools] No configured local Sim friends are observable right now.", "yellow");
+                    Chat("[Party Tools] Erenshor's Friends filter is empty for this character.", "yellow");
                     return;
                 }
-                PartyToolsPanel.ShowFriendAvailability(rows);
+                PartyToolsPanel.ShowPartyWho(rows);
             }
-            catch (Exception ex) { Logging.LogError("Party Tools /ptwho handling failed: " + ex); }
+            catch (Exception ex) { Logging.LogError("Party Tools /ptwho handling failed (" + ex.GetType().Name + ")."); }
         }
 
         private static bool TryMatchCommand(string raw, string command, out string argument)
@@ -381,13 +352,6 @@ namespace ErenshorPartyTools
         private static bool TryParseSides(string argument, out int sides)
         {
             return PartyToolsCommandPolicy.TryParseSides(argument, MaximumRollSides, out sides);
-        }
-
-        private void EnsureFriendAvailabilitySeed()
-        {
-            if (_friendAvailabilitySeed == null || !string.IsNullOrWhiteSpace(_friendAvailabilitySeed.Value)) return;
-            _friendAvailabilitySeed.Value = Guid.NewGuid().ToString("N");
-            Config.Save();
         }
 
         private static void ClearInput(TypeText typeText)

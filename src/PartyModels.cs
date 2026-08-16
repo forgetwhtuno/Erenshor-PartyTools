@@ -5,7 +5,7 @@ namespace ErenshorPartyTools
         ReadyCheck,
         Roll,
         PartyRoll,
-        FriendAvailability
+        PartyWho
     }
 
     internal sealed class PartyRollParticipant
@@ -32,20 +32,12 @@ namespace ErenshorPartyTools
         }
     }
 
-    internal enum PartyRollTone
-    {
-        Neutral,
-        Friendly,
-        Competitive,
-        Blunt,
-        Rival
-    }
-
     internal enum ReadyState
     {
         Ready,
         Dead,
         InCombat,
+        RemotePlayer,
         Unavailable
     }
 

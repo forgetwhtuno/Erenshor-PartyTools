@@ -9,6 +9,7 @@ namespace ErenshorPartyTools
         public bool RaidActive;
         public bool PanelOpen;
         public int LocalParticipantCount;
+        public int PartyMemberCount;
         public string PlayerName;
         public bool ShowLauncher;
         public bool RollChatterEnabled;
@@ -24,7 +25,7 @@ namespace ErenshorPartyTools
         public static string GetStatus()
         {
             PartyToolsControlState state = GetBasicState();
-            return state.GameplayReady ? (state.RaidActive ? "Raid active; party tools limited." : state.LocalParticipantCount + " local roll participant(s).") : "Not fully in world.";
+            return state.GameplayReady ? (state.RaidActive ? "Raid active; normal-party tools limited." : state.PartyMemberCount + " current party member(s).") : "Waiting for character.";
         }
         public static PartyToolsControlState GetBasicState()
         {
@@ -34,8 +35,9 @@ namespace ErenshorPartyTools
             ErenshorPartyToolsPlugin plugin = ErenshorPartyToolsPlugin.Instance;
             if (plugin != null) { state.ShowLauncher = plugin.ShowLauncherPreference; state.RollChatterEnabled = plugin.RollChatterPreference; state.FriendFallbackEnabled = plugin.FriendFallbackPreference; }
             try { state.RaidActive = PartyStateReader.IsRaidActive(); } catch { }
-            try { state.PlayerName = PartyStateReader.ReadPlayerName(); } catch { state.PlayerName = string.Empty; }
+            // PlayerName is retained for local API shape compatibility but intentionally omitted from Suite-facing state.
             try { state.LocalParticipantCount = PartyStateReader.GetLocalRollParticipants().Count; } catch { }
+            try { state.PartyMemberCount = PartyStateReader.BuildPartyWhoRows().Count; } catch { }
             return state;
         }
         public static bool OpenPanel()
@@ -51,9 +53,9 @@ namespace ErenshorPartyTools
         }
         public static bool ClosePanel()
         {
-            ErenshorPartyToolsPlugin plugin = ErenshorPartyToolsPlugin.Instance;
-            if (plugin == null) return false;
-            plugin.RequestCloseToolsPanel(); return true;
+            if (ErenshorPartyToolsPlugin.Instance == null) return false;
+            PartyToolsPanel.Close();
+            return !PartyToolsPanel.IsOpen;
         }
         public static bool ResetPanelPosition() { PartyToolsPanel.ResetPosition(); return true; }
         public static bool ResetLauncherPosition() { var p=ErenshorPartyToolsPlugin.Instance; if(p==null)return false; p.ResetLauncherPosition(); return true; }
@@ -63,6 +65,7 @@ namespace ErenshorPartyTools
         public static bool ReadyCheck() { var p = ErenshorPartyToolsPlugin.Instance; if (p == null || !SuiteUiPolicy.IsGameplayReady()) return false; p.ControlReadyCheck(); return true; }
         public static bool Roll(int sides) { var p = ErenshorPartyToolsPlugin.Instance; if (p == null || !SuiteUiPolicy.IsGameplayReady() || sides < 1 || sides > 1000000) return false; p.ControlRoll(sides); return true; }
         public static bool PartyRoll(int sides) { var p = ErenshorPartyToolsPlugin.Instance; if (p == null || !SuiteUiPolicy.IsGameplayReady() || sides < 1 || sides > 1000000) return false; p.ControlPartyRoll(sides); return true; }
-        public static bool ShowFriendAvailability() { var p = ErenshorPartyToolsPlugin.Instance; if (p == null || !SuiteUiPolicy.IsGameplayReady()) return false; p.ControlFriendAvailability(); return true; }
+        public static bool ShowPartyWho() { var p = ErenshorPartyToolsPlugin.Instance; if (p == null || !SuiteUiPolicy.IsGameplayReady()) return false; p.ControlPartyWho(); return true; }
+        public static bool ShowFriendAvailability() { return ShowPartyWho(); }
     }
 }
