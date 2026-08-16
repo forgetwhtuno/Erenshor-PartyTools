@@ -36,6 +36,7 @@ namespace ErenshorPartyTools
             {
                 case ReadyState.Dead: return "DEAD";
                 case ReadyState.InCombat: return "IN COMBAT";
+                case ReadyState.RemotePlayer: return "REMOTE";
                 case ReadyState.Unavailable: return "UNAVAILABLE";
                 default: return "READY";
             }

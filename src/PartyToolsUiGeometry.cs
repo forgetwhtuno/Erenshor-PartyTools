@@ -8,6 +8,37 @@ namespace ErenshorPartyTools
         internal PartyToolsUiRect(float x, float y, float width, float height) { X = x; Y = y; Width = width; Height = height; }
     }
 
+    internal struct PartyToolsPanelLayout
+    {
+        internal readonly bool ShowFooter;
+        internal readonly float ResultY;
+        internal readonly float ViewportBottom;
+        internal readonly float ViewportHeight;
+
+        internal PartyToolsPanelLayout(bool showFooter, float resultY, float viewportBottom, float viewportHeight)
+        {
+            ShowFooter = showFooter; ResultY = resultY; ViewportBottom = viewportBottom; ViewportHeight = viewportHeight;
+        }
+    }
+
+    internal static class PartyToolsPanelLayoutPolicy
+    {
+        internal static PartyToolsPanelLayout Resolve(float panelHeight)
+        {
+            float resultY = panelHeight - 216f;
+            bool showFooter = panelHeight >= 360f;
+            float bottom = showFooter ? 66f : 12f;
+            float height = Math.Max(30f, resultY - bottom - 6f);
+            return new PartyToolsPanelLayout(showFooter, resultY, bottom, height);
+        }
+
+        internal static bool NoResultOverlap(float panelHeight)
+        {
+            PartyToolsPanelLayout layout = Resolve(panelHeight);
+            return layout.ViewportBottom + layout.ViewportHeight <= layout.ResultY - 5.9f;
+        }
+    }
+
     internal static class PartyToolsUiGeometry
     {
         internal const float Unset = -1f;

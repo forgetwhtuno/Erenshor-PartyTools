@@ -21,8 +21,24 @@ namespace ErenshorPartyTools
 
         static CoopCompatibility()
         {
+            Initialize();
+        }
+
+        internal static void Initialize()
+        {
+            // Be idempotent so a same-AppDomain Lunaris reload/re-enable cannot leave the
+            // optional COOP cache detached from future AssemblyLoad invalidation.
+            try { AppDomain.CurrentDomain.AssemblyLoad -= OnAssemblyLoad; }
+            catch { }
             try { AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad; }
             catch { }
+            lock (ResolveLock)
+            {
+                _resolved = false;
+                _networkedPlayerType = null;
+                _legacyNetworkedPlayerType = null;
+                _networkedSimType = null;
+            }
         }
 
         private static void OnAssemblyLoad(object sender, AssemblyLoadEventArgs args)

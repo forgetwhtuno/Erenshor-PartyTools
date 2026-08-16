@@ -1,10 +1,54 @@
 # Changelog
 
+## 0.1.5 - RC camera and gesture ownership
+
+- Claims only left-button gestures at pointer-down, reasserts while held, and releases on physical button loss, focus/pause loss, disable, destroy, readiness loss, close, zone, and unload.
+- Coordinates through the suite process owner registry and restores the captured native baseline instead of blindly clearing `GameData.DraggingUIElement`.
+- Adds a fail-closed monotonic postfix for the verified current `CameraController.UsingUI()` boundary and release source guards.
+- Startup output now includes the exact version.
+
+## 0.1.4 - Escape authority release correctness
+
+- Split Hub **presence** from Hub launcher usability/native quick-close capability. A well-formed Hub endpoint now always suppresses Party Tools' local Escape poll, even when `quickClose=0` or this module's quick-close provider is unavailable.
+- Standalone Escape fallback is retained only when Hub is genuinely unavailable/malformed; healthy-but-unverified Suite operation uses explicit X/close controls and does not compete for Escape.
+- Added deterministic tests for all three authority states and documented that Erenshor's tall Attack/Assist/Pull/Auto Pull/Guard stack is native UI outside Party Tools ownership.
+
+## Unreleased
+
+- Restored `/ptwho` and the panel's **Friends Online** action to Erenshor's native current-character Friends roster. It again shows `AVAILABLE`, `BUSY - GROUPED`, and `OFFLINE` for friends who may be available to group.
+
+## 0.1.3 - deep playable-state pass
+
+- Replaced `System.Random` rolls with rejection-sampled `RandomNumberGenerator` output for unbiased inclusive ranges through 1,000,000.
+- Removed synthetic Sim/personality roll chatter. A party roll can now emit at most one concise local summary line, while the retained panel remains the complete result surface.
+- Removed the second-overload chat fallback: one Party Tools action now makes exactly one native chat append attempt, avoiding a late-exception path that could duplicate a result line.
+- Ready checks now distinguish an explicitly identified remote COOP human as `REMOTE` without inventing readiness; unknown combat/alive state fails closed to `UNAVAILABLE`.
+- `/ptwho` now includes persistent Sim level/class only for verified local Sims; remote humans are never described using the backing Sim tracking record.
+- The normal panel opens directly on a refreshing current-party summary and returns there when a ready check expires.
+- Added small-screen result-list geometry so optional footer content yields before result rows overlap the header.
+- Added duplicate-plugin initialization protection and privacy-safer exception-type logging for hot reload/recovery.
+- Optional COOP AssemblyLoad detection now reinitializes idempotently on plugin load and fully detaches on unload, avoiding stale type caches across Lunaris reload cycles.
+- The cryptographic RNG provider now follows plugin initialize/shutdown lifecycle so repeated Lunaris reloads do not retain native RNG resources.
+- Added/expanded pure tests for roll bounds, parsing edge cases, readiness/remote policy, party snapshot formatting, panel geometry, and Suite launcher fallback.
+- Suite basic labels are exactly `Show Party Tools Launcher` and `Party roll chat summary`.
+
+## Unreleased - full playable-state reliability pass
+
+- `/ptwho` now reports only the current player/current party, with explicit local-Sim, observable remote-COOP, and unavailable states; legacy friend-availability config remains readable but is no longer product behavior.
+- Refresh an open `/ptwho` view on the same bounded cadence used by ready checks so party membership changes do not leave stale rows.
+- Added a bounded 10-second ready-check session timeout; repeated `/ready` restarts the current check and current-party rows continue to refresh while it is active.
+- Added explicit retained-panel `Launcher [ON/OFF]` and `Roll Chatter [ON/OFF]` buttons while keeping the panel compact.
+- Added shared `ui.state`/`closePanel` support and defer local Escape only when the Hub advertises verified quick-close and this module provider registered successfully.
+- Added pure release-policy coverage for command bounds, ready timeout, current-party/COOP classification, Hub presence, quick-close fallback, and `ui.state`.
+- No AI, raid tooling, network messages, gameplay rolls, or inferred readiness were added.
+
 ## Unreleased - retained uGUI / Suite control migration
 
+- Aligned the retained launcher/panel with Follow's proven Sim Actions dark/translucent/cyan visual language while preserving the existing retained hierarchy, commands, drag ownership, launcher fallback, and deterministic party behavior.
+- Updated `TESTING.md` for the retained launcher/Hub/X lifecycle; removed stale F7/OpenMenuKey and transient-timeout acceptance steps from the current test plan. Historical changelog entries remain historical.
 - Replaced the transient IMGUI/F7 menu with one persistent retained-uGUI panel and small launcher. Removed Party Tools UI click/camera Harmony workarounds and normal-access global hotkey polling; `/tools`, `/ready`, `/roll`, `/rollparty`, and `/ptwho` command semantics remain unchanged.
 - Added EventSystem drag guards, normalized bottom-left position persistence, resolution reclamping, visible X/reset controls, and scrollable in-place result rows. Ready rows refresh values without rebuilding the whole panel.
-- Added `showLauncher` Aura setting with mandatory fallback visibility whenever Hub is absent/unusable or this module's Aura bridge is not registered. Hub also exposes the existing roll-chatter and friend-fallback settings plus `openPanel`.
+- Added `showLauncher` Aura setting with mandatory fallback visibility whenever Hub is absent/unusable or this module's Aura bridge is not registered. That migration initially exposed roll-chatter and friend-fallback settings plus `openPanel`; the current playable-state pass above supersedes friend-fallback product behavior because `/ptwho` is now current-party-only.
 - Added deterministic tests for launcher policy, normalized geometry, roll bounds/bad/overflow input, repeated parsing, ready-state presentation, and zone/not-ready panel cleanup. Ready checks remain deterministic and remote COOP humans are never inferred ready.
 - Current-assembly compile/live Lunaris validation remains required before release.
 

@@ -53,23 +53,23 @@ namespace ErenshorPartyTools
         public UnityEngine.KeyCode OpenMenuKey = UnityEngine.KeyCode.F7;
 
         [Config("Enabled", "Roll Chatter",
-            "Show local cosmetic party-roll chat: the player announces, local Sims acknowledge, every result is displayed, and one untied winner reacts. This does not control loot or gameplay.")]
+            "Show one concise local chat summary for a party roll. Party Tools does not impersonate Sim dialogue and this never controls loot or gameplay.")]
         public bool RollChatterEnabled = true;
 
         [Config("Enabled", "FriendAvailability",
-            "Compatibility fallback only: when false, manually configured fallback friends are shown as AVAILABLE unless native game state verifies they are grouped. The native current-character friend roster is always preferred.")]
+            "Compatibility toggle retained for existing config files. /ptwho reads the native Friends roster directly and does not simulate availability.")]
         public bool FriendAvailabilityEnabled = true;
 
         [Config("SessionHours", "FriendAvailability",
-            "Real-world availability block duration in hours (1-24). Default: 3.")]
+            "Legacy compatibility value; unused by the current-party /ptwho implementation.")]
         public int FriendAvailabilitySessionHours = FriendAvailability.DefaultSessionHours;
 
         [Config("Seed", "FriendAvailability",
-            "Persistent Party Tools seed. Generated once when blank; do not change during a session unless intentionally changing simulated availability.")]
+            "Legacy compatibility value; unused by the current-party /ptwho implementation.")]
         public string FriendAvailabilitySeed = string.Empty;
 
         [Config("Friends", "FriendAvailability",
-            "Compatibility fallback only: comma-separated Sim names used if the native current-character friend roster is temporarily unavailable.")]
+            "Legacy compatibility value; unused by the current-party /ptwho implementation.")]
         public string FriendAvailabilityFriends = string.Empty;
     }
 }
