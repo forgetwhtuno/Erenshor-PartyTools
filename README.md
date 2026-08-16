@@ -1,5 +1,7 @@
 # Erenshor Party Tools 0.1.5
 
+Part of the **Forgotten Roads for Erenshor** mod collection.
+
 Party Tools is a lightweight social/diagnostic utility for local Erenshor parties. It does not control combat, movement, healing, loot, rolls in the game engine, or rewards.
 
 ## Commands and panel
@@ -57,7 +59,7 @@ This is an unofficial, community-made mod for Erenshor and is not affiliated wit
 
 ## Optional Suite Hub integration
 
-Erenshor Suite Hub is **optional**. Party Tools exposes its versioned `PartyToolsControlApi` through Aura without referencing Hub types or assuming Hub load order. Hub can show concise state, `Show Party Tools Launcher`, `Party roll chat summary`, and the conventional panel/actions. The module advertises `ui.state` + `closePanel`. Escape ownership is deterministic: if a well-formed Hub endpoint is present, Party Tools does **not** poll Escape—even when Hub reports `quickClose=0`; the player uses explicit X/close controls until Hub has a verified native consume path. A local Escape fallback exists only when the Hub endpoint is genuinely unavailable, preserving standalone usability without competing with a healthy Hub.
+Forgotten Roads Hub is **optional**. Party Tools exposes its versioned `PartyToolsControlApi` through Aura without referencing Hub types or assuming Hub load order. The Hub can show concise state, `Show Party Tools Launcher`, `Party roll chat summary`, and the conventional panel/actions. The module advertises `ui.state` + `closePanel`. Escape ownership is deterministic: if a well-formed Hub endpoint is present, Party Tools does **not** poll Escape—even when Hub reports `quickClose=0`; the player uses explicit X/close controls until Hub has a verified native consume path. A local Escape fallback exists only when the Hub endpoint is genuinely unavailable, preserving standalone usability without competing with a healthy Hub.
 
 The retained panel and commands stay independently usable. Launcher fallback is mandatory: with Hub absent/unusable or this module's bridge unregistered, the on-screen Party Tools launcher is forced visible even when the saved Hub-era preference is off. With Hub and the bridge usable, the preference is obeyed.
 
