@@ -136,3 +136,17 @@ if ($panelSource -notmatch 'PartyToolsDragGuard' -or
     throw "Party Tools input guard failed: proven drag owner is no longer attached to the header."
 }
 Write-Host "Party Tools canonical collapse/header chrome: PASS" -ForegroundColor Green
+
+# Retained-UI source contract (tests/verify_retained_ui_source.py). Run it whenever Python is
+# available so the contract cannot silently rot; skip with a warning otherwise rather than making
+# Python a hard prerequisite for the C# suites above.
+$retainedUiVerifier = Join-Path $ScriptRoot "tests\verify_retained_ui_source.py"
+$python = (Get-Command python -ErrorAction SilentlyContinue)
+if (-not $python) { $python = (Get-Command py -ErrorAction SilentlyContinue) }
+if ($python) {
+    & $python.Source $retainedUiVerifier
+    if ($LASTEXITCODE -ne 0) { throw "Retained UI source contract failed." }
+    Write-Host "Party Tools retained UI source contract: PASS" -ForegroundColor Green
+} else {
+    Write-Warning "Python not found; skipped tests\verify_retained_ui_source.py."
+}
