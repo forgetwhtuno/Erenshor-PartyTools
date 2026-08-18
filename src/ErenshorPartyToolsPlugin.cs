@@ -14,8 +14,9 @@ namespace ErenshorPartyTools
     {
         internal const string PluginGuid = "forgetwhtuno.erenshor.partytools";
         internal const string PluginName = "Erenshor Party Tools";
-        internal const string PluginVersion = "0.1.5";
+        internal const string PluginVersion = "0.1.6";
         internal const int MaximumRollSides = 1000000;
+        private const float UpdateErrorLogIntervalSeconds = 30f;
 
         internal static ErenshorPartyToolsPlugin Instance;
         internal static bool IsSuiteQuickCloseProviderRegistered { get { return Instance != null && Instance._auraProvider != null && Instance._auraProvider.Registered; } }
@@ -38,6 +39,8 @@ namespace ErenshorPartyTools
         private PartyToolsConfigEntry<string> _friendAvailabilityFriends;
         private PartyToolsConfigEntry<bool> _rollChatterEnabled;
         private PartyToolsSuiteAuraProvider _auraProvider;
+        private float _nextUpdateErrorLogAt;
+        private int _suppressedUpdateErrors;
 
         private void Awake()
         {
@@ -67,8 +70,8 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logging.LogError("Erenshor Party Tools failed to patch (" + ex.GetType().Name + ").");
-                return;
+                try { _harmony.UnpatchSelf(); } catch { }
+                Logging.LogError("Erenshor Party Tools Harmony hooks unavailable (" + ex.GetType().Name + "). Retained UI/Aura will continue, but slash-command and camera-containment hooks are disabled.");
             }
 
             try { _auraProvider = new PartyToolsSuiteAuraProvider(this); }
@@ -114,9 +117,23 @@ namespace ErenshorPartyTools
             }
             catch (Exception ex)
             {
-                Logging.LogError("Party Tools update/UI failed (" + ex.GetType().Name + ").");
+                LogUpdateFailure(ex);
                 PartyToolsPanel.Close(); PartyToolsPanel.ReleaseDrag();
             }
+        }
+
+        // A persistent Update failure would otherwise write one line per frame. Report the first
+        // one immediately, then at most one bounded summary per interval so a broken frame can
+        // never flood the shared Lunaris log.
+        private void LogUpdateFailure(Exception ex)
+        {
+            if (UnityEngine.Time.unscaledTime < _nextUpdateErrorLogAt) { _suppressedUpdateErrors++; return; }
+            string suffix = _suppressedUpdateErrors > 0
+                ? " (" + _suppressedUpdateErrors.ToString(CultureInfo.InvariantCulture) + " similar failures suppressed since the last report)"
+                : string.Empty;
+            _suppressedUpdateErrors = 0;
+            _nextUpdateErrorLogAt = UnityEngine.Time.unscaledTime + UpdateErrorLogIntervalSeconds;
+            try { Logging.LogError("Party Tools update/UI failed (" + ex.GetType().Name + ")." + suffix); } catch { }
         }
 
         private void OnDestroy()
@@ -133,6 +150,7 @@ namespace ErenshorPartyTools
             try { if (_harmony != null) _harmony.UnpatchSelf(); } catch { }
             _harmony = null;
             _pendingExternalOpen = _pendingExternalClose = false; _pendingControlAction = _pendingControlSides = 0;
+            _nextUpdateErrorLogAt = 0f; _suppressedUpdateErrors = 0;
             SuiteUiPolicy.Reset();
             if (Instance == this) Instance = null;
         }

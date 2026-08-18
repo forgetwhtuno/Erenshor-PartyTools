@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.1.6 - first public release
+
+**Added**
+- Standalone retained-uGUI launcher with programmatic grip marks and the shared Forgotten Roads hover/pressed colors.
+- Collapsible panel header: collapsed Party Tools keeps only its draggable header plus Reset and Close.
+
+**Changed**
+- Standardized the compact title and close-button dimensions without changing any party action or panel content.
+- Explicit Ready Check, Roll, Party Roll, and Friends Online actions remain the panel's full surface, with Suite Hub launcher fallback unchanged.
+
+**Fixed**
+- A Harmony install failure is now fail-open. If the chat-command and camera-containment hooks cannot be applied, Party Tools unpatches itself and keeps the retained UI and Suite bridge working instead of aborting startup.
+- A persistent per-frame update failure now reports one bounded summary at most every 30 seconds instead of one log line per frame.
+- The project file now references `UnityEngine.InputLegacyModule`, so `ErenshorPartyTools.csproj` builds from a clean checkout.
+
+**Compatibility**
+- Built against the currently installed Erenshor `Assembly-CSharp.dll` and Lunaris 0.1.0.
+- Fully standalone. Suite Hub and every other Forgotten Roads mod are optional; none are required to load or to use any feature.
+- Supports Lunaris runtime enable/disable/reload.
+
+**Known limitations**
+- Lunaris lists the plugin under its stable identifier `forgetwhtuno.erenshor.partytools` rather than a friendly display name. That identifier also names the config file, so it is deliberately left unchanged.
+
 ## 0.1.5 - RC camera and gesture ownership
 
 - Claims only left-button gestures at pointer-down, reasserts while held, and releases on physical button loss, focus/pause loss, disable, destroy, readiness loss, close, zone, and unload.
@@ -13,7 +36,7 @@
 - Standalone Escape fallback is retained only when Hub is genuinely unavailable/malformed; healthy-but-unverified Suite operation uses explicit X/close controls and does not compete for Escape.
 - Added deterministic tests for all three authority states and documented that Erenshor's tall Attack/Assist/Pull/Auto Pull/Guard stack is native UI outside Party Tools ownership.
 
-## Unreleased
+## Pre-release development
 
 - Restored `/ptwho` and the panel's **Friends Online** action to Erenshor's native current-character Friends roster. It again shows `AVAILABLE`, `BUSY - GROUPED`, and `OFFLINE` for friends who may be available to group.
 
@@ -32,7 +55,7 @@
 - Added/expanded pure tests for roll bounds, parsing edge cases, readiness/remote policy, party snapshot formatting, panel geometry, and Suite launcher fallback.
 - Suite basic labels are exactly `Show Party Tools Launcher` and `Party roll chat summary`.
 
-## Unreleased - full playable-state reliability pass
+## Pre-release development - full playable-state reliability pass
 
 - `/ptwho` now reports only the current player/current party, with explicit local-Sim, observable remote-COOP, and unavailable states; legacy friend-availability config remains readable but is no longer product behavior.
 - Refresh an open `/ptwho` view on the same bounded cadence used by ready checks so party membership changes do not leave stale rows.
@@ -42,7 +65,7 @@
 - Added pure release-policy coverage for command bounds, ready timeout, current-party/COOP classification, Hub presence, quick-close fallback, and `ui.state`.
 - No AI, raid tooling, network messages, gameplay rolls, or inferred readiness were added.
 
-## Unreleased - retained uGUI / Suite control migration
+## Pre-release development - retained uGUI / Suite control migration
 
 - Aligned the retained launcher/panel with Follow's proven Sim Actions dark/translucent/cyan visual language while preserving the existing retained hierarchy, commands, drag ownership, launcher fallback, and deterministic party behavior.
 - Updated `TESTING.md` for the retained launcher/Hub/X lifecycle; removed stale F7/OpenMenuKey and transient-timeout acceptance steps from the current test plan. Historical changelog entries remain historical.
@@ -52,7 +75,7 @@
 - Added deterministic tests for launcher policy, normalized geometry, roll bounds/bad/overflow input, repeated parsing, ready-state presentation, and zone/not-ready panel cleanup. Ready checks remain deterministic and remote COOP humans are never inferred ready.
 - Current-assembly compile/live Lunaris validation remains required before release.
 
-## Unreleased (native Lunaris migration)
+## Pre-release development (native Lunaris migration)
 
 - Converted the plugin host from BepInEx (`BaseUnityPlugin`/`[BepInPlugin]`/`[BepInProcess]`) to
   native Lunaris (`LunarisPlugin`/`[LunarisPlugin]`/`[LunarisPermission(Reflection | Harmony)]`).
@@ -72,7 +95,7 @@
 - `BUILD_AND_INSTALL.ps1`/`UNINSTALL.ps1` now target `<Erenshor>\plugins` instead of a BepInEx
   profile and no longer require `BepInEx.dll`.
 
-## Unreleased
+## Pre-release development
 
 - Aligned the panel interaction contract with PvP: upper-right/below-minimap placement, persisted clamped dragging with hot-control ownership, and suppression of world clicks and camera rotation while the pointer is over or dragging Party Tools.
 - `/ptwho` now reads the current character's real Erenshor friend roster using
@@ -110,7 +133,7 @@
 - Added build/install and uninstall helpers.
 
 
-## Unreleased - Suite UI/API coherence handoff
+## Pre-release development - Suite UI/API coherence handoff
 
 - Added optional, versioned `PartyToolsControlApi` discovery/control surface for Suite Hub without a hard Hub dependency.
 - Kept standalone commands and core gameplay authority intact.

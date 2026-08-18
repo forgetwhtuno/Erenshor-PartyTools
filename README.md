@@ -1,4 +1,4 @@
-# Erenshor Party Tools 0.1.5
+# Erenshor Party Tools 0.1.6
 
 Part of the **Forgotten Roads for Erenshor** mod collection.
 
@@ -38,11 +38,62 @@ Party Tools uses narrow Harmony command interception, read-only state inspection
 
 Party Tools owns only its retained **PARTY TOOLS** launcher/panel and the Ready Check, Roll, Party Roll, Friends Online, launcher preference, and roll-summary controls described above. The tall in-game party command stack containing controls such as **Attack, Assist, Pull Target, Auto Pull, Guard** is Erenshor's native party/group UI, not a Party Tools panel. This mod does not patch or restyle that stack in the current source, so changes to it are outside Party Tools' safe surface.
 
-## Build
+## Installation
 
-This version requires **native Lunaris** — BepInEx is no longer required. `BUILD_AND_INSTALL.ps1` compiles the plugin and installs it to `<Erenshor>\plugins\ErenshorPartyTools.dll`; Lunaris manages enable/disable and config. The plugin identifier is `forgetwhtuno.erenshor.partytools`, version `0.1.5`.
+Party Tools requires **Lunaris**. BepInEx is not required, and nothing else needs to be installed —
+Lunaris already ships Harmony.
 
-**Status:** the native-Lunaris baseline previously compiled against the installed Lunaris/Assembly-CSharp. The retained-uGUI workstream changes the UI/source surface and therefore still requires a fresh current-assembly compile, deterministic test run, and live enable/disable/reload validation before release. A legacy BepInEx release remains available in this repository's Git history.
+**Lunaris (recommended)**
+
+1. Install Lunaris for Erenshor and launch the game once so the loader sets itself up.
+2. Open the Lunaris plugin installer in game.
+3. Search for **Erenshor Party Tools** and install it.
+4. Enable the plugin.
+
+**Manual**
+
+Download the release archive and copy **only** `ErenshorPartyTools.dll` into the `plugins` folder
+next to `Erenshor.exe`. The `README.md`, `CHANGELOG.md`, `LICENSE`, and `NOTICE` files in the
+archive are documentation — do not copy them into `plugins`.
+
+## Updating
+
+Install the new version the same way and let it replace `ErenshorPartyTools.dll`. Your settings live
+in `plugins/config/forgetwhtuno.erenshor.partytools.lpcfg` and are preserved across updates; Party
+Tools never deletes them.
+
+## Configuration
+
+Settings are edited through Lunaris (or Suite Hub, if installed). The defaults are safe for normal
+play:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `ShowLauncher` | on | Show the on-screen Party Tools launcher. Forced visible whenever Suite Hub is absent or unusable, so the mod is never unreachable. |
+| `Roll Chatter / Enabled` | on | Emit one concise chat summary line for a party roll. Purely cosmetic. |
+| `PanelNormalizedX/Y`, `LauncherNormalizedX/Y` | auto | Remembered on-screen positions. `-1` means "use the safe default". |
+
+Entries under `UI.Legacy` and `FriendAvailability` are retained only so older config files keep
+loading. They no longer affect behavior.
+
+## Build from source
+
+`BUILD_AND_INSTALL.ps1` compiles the plugin against your installed Erenshor/Lunaris assemblies and
+installs it to `<Erenshor>\plugins\ErenshorPartyTools.dll`. This repository intentionally does not
+redistribute Erenshor, Unity, or Lunaris assemblies. The plugin identifier is
+`forgetwhtuno.erenshor.partytools`, version `0.1.6`. A legacy BepInEx release remains available in
+this repository's Git history.
+
+Run the deterministic test suite with `RUN_TESTS.ps1`.
+
+## Support / issues
+
+Please report bugs and feature requests on the
+[GitHub issue tracker](https://github.com/forgetwhtuno/ForgottenRoads-PartyTools/issues).
+
+## License
+
+See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Credits and Inspiration
 
@@ -52,7 +103,7 @@ This version requires **native Lunaris** — BepInEx is no longer required. `BUI
 
 ## Development note
 
-This project has been developed heavily with AI-assisted coding tools. The goal has been to build features I wanted to use in Erenshor, with development guided through design, testing, playtesting, audits, and iteration against the game. Bug reports, code review, corrections, and contributions from experienced Erenshor modders are welcome.
+The goal is to build features for Erenshor, with development guided through design, testing, playtesting, audits, and iteration against the game. Bug reports, code review, corrections, and contributions from experienced Erenshor modders are welcome.
 
 This is an unofficial, community-made mod for Erenshor and is not affiliated with or endorsed by the game's developer.
 
@@ -64,5 +115,3 @@ Forgotten Roads Hub is **optional**. Party Tools exposes its versioned `PartyToo
 The retained panel and commands stay independently usable. Launcher fallback is mandatory: with Hub absent/unusable or this module's bridge unregistered, the on-screen Party Tools launcher is forced visible even when the saved Hub-era preference is off. With Hub and the bridge usable, the preference is obeyed.
 
 Ready-check inference, roll bounds/output behavior, raid limitations, friend availability, and COOP remote-human handling remain deterministic and authoritative in Party Tools.
-
-The retained-uGUI migration still requires a current-assembly compile and live Lunaris hot-reload pass before release.

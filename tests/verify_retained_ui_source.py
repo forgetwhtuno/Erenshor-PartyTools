@@ -25,13 +25,18 @@ require("OpenMenuKey" not in plugin, "legacy F7 setting is still wired into runt
 require("OpenMenuKey" in settings and "UI.Legacy" in settings, "legacy config compatibility was not retained")
 for token in ("CanvasScaler", "GraphicRaycaster", "TextMeshProUGUI", "ScrollRect", "PartyToolsDragGuard"):
     require(token in panel, "retained UI component missing: " + token)
-require("GameData.DraggingUIElement = true" in drag and "GameData.DraggingUIElement = false" in drag, "drag ownership not balanced")
+require("GameData.DraggingUIElement = true" in drag, "drag ownership never asserts the native flag")
+require("GameData.DraggingUIElement = baseline" in drag,
+        "drag ownership must restore the captured pre-gesture value, not blind-clear another UI owner")
 require("drag = grip.gameObject.AddComponent<PartyToolsDragGuard>()" in panel, "launcher drag guard must attach to launcher grip")
 require("AddImage(_headerGrip, new Color(0f, 0f, 0f, 0f))" in panel, "panel drag surface must be raycastable")
-for action in ("ReadyCheck", "Roll(100)", "PartyRoll(100)", "ShowFriendAvailability"):
+for action in ("ReadyCheck", "Roll(100)", "PartyRoll(100)", "ShowPartyWho"):
     require("PartyToolsControlApi." + action in panel, "panel action not routed through ControlApi: " + action)
 require("showLauncher" in aura and "openPanel" in aura and "resetLauncher" in aura, "Aura panel/launcher contract incomplete")
 require("!SuiteUiPolicy.IsGameplayReady()" in control, "ControlApi readiness gate missing")
-require("Unity.TextMeshPro" in project and "UnityEngine.IMGUIModule" not in project and "UnityEngine.InputLegacyModule" not in project, "project references do not match retained UI stack")
+require("Unity.TextMeshPro" in project, "project references do not match retained UI stack")
+require("UnityEngine.IMGUIModule" not in project, "IMGUI reference reintroduced; Party Tools is retained-uGUI only")
+require("UnityEngine.InputLegacyModule" in project,
+        "project must reference InputLegacyModule: Escape handling and the drag guard use UnityEngine.Input")
 require("BepInEx.dll" not in project and 'Reference Include="BepInEx' not in project, "BepInEx project reference remains")
 print("verify_retained_ui_source: PASS")

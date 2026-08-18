@@ -45,6 +45,8 @@ namespace ErenshorPartyTools
         internal const float Margin = 10f;
         internal const float PanelWidth = 370f;
         internal const float PanelHeight = 455f;
+        internal const float HeaderHeight = 32f;
+        internal const float CollapsedHeight = HeaderHeight;
         internal const float LauncherWidth = 154f;
         internal const float LauncherHeight = 32f;
 
@@ -77,6 +79,23 @@ namespace ErenshorPartyTools
             return r;
         }
 
+        internal static PartyToolsUiRect CollapseFromExpanded(PartyToolsUiRect expanded, float sw, float sh)
+        {
+            PartyToolsUiRect value = new PartyToolsUiRect(expanded.X,
+                expanded.Y + expanded.Height - CollapsedHeight,
+                expanded.Width, CollapsedHeight);
+            return Clamp(value, sw, sh);
+        }
+
+        internal static PartyToolsUiRect ExpandFromCollapsed(PartyToolsUiRect collapsed, float expandedHeight, float sw, float sh)
+        {
+            float height = Math.Max(HeaderHeight, expandedHeight);
+            PartyToolsUiRect value = new PartyToolsUiRect(collapsed.X,
+                collapsed.Y + collapsed.Height - height,
+                collapsed.Width, height);
+            return Clamp(value, sw, sh);
+        }
+
         internal static void Normalize(PartyToolsUiRect r, float sw, float sh, out float x, out float y)
         {
             x = sw <= 0f ? 0f : ClampValue(r.X / sw, 0f, 1f);
@@ -91,6 +110,14 @@ namespace ErenshorPartyTools
             if (r.X < Margin || r.Y < Margin || r.X + r.Width > 1920 || r.Y + r.Height > 1080) return "FAIL partytools panel clamp";
             PartyToolsUiRect l = ResolveLauncher(1f, 1f, 640, 360);
             if (l.X + l.Width > 640.1f || l.Y + l.Height > 360.1f) return "FAIL partytools launcher clamp";
+            PartyToolsUiRect expanded = new PartyToolsUiRect(100f, 100f, PanelWidth, PanelHeight);
+            PartyToolsUiRect collapsed = CollapseFromExpanded(expanded, 1920f, 1080f);
+            if (Math.Abs(collapsed.Height - HeaderHeight) > .001f) return "FAIL partytools collapsed height";
+            if (Math.Abs((expanded.Y + expanded.Height) - (collapsed.Y + collapsed.Height)) > .001f) return "FAIL partytools collapse top preservation";
+            PartyToolsUiRect restored = ExpandFromCollapsed(collapsed, expanded.Height, 1920f, 1080f);
+            if (Math.Abs(restored.Y - expanded.Y) > .001f || Math.Abs(restored.Height - expanded.Height) > .001f)
+                return "FAIL partytools expand restoration";
+            if (HeaderHeight != 32f) return "FAIL partytools canonical header height";
             return "PASS partytools retained ui geometry";
         }
 
